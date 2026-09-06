@@ -34,6 +34,7 @@ interface Slot {
   clientPhone: string;
   durationMinutes?: number;
   calendarEventId?: string;
+  clientInstagram?: string;
 }
 
 interface Day {
@@ -52,6 +53,7 @@ interface GoogleCalendarEvent {
   time: string;
   durationMinutes: number;
   year: number;
+  clientInstagram?: string;
 }
 const googleCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/createCalendarEvent';
 const syncCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/syncCalendarBookings';
@@ -402,6 +404,10 @@ function showBookingForm(time: string, durationMinutes: number) {
         <input type="tel" id="clientPhone" class="form-control" placeholder="600 000 000" required inputmode="tel" autocomplete="tel">
         <div class="invalid-feedback d-block" id="clientPhoneError"></div>
       </div>
+      <div class="mb-4">
+        <label class="form-label fw-bold">Instagram <span class="text-muted fw-normal">(opcional)</span></label>
+        <input type="text" id="clientInstagram" class="form-control" placeholder="@tu_usuario" autocomplete="off">
+      </div>
       <button class="btn w-100 py-2 fw-bold" id="confirmBtn" style="background-color: #6f42c1; color: white;">
         Confirmar cita
       </button>
@@ -413,7 +419,7 @@ function showBookingForm(time: string, durationMinutes: number) {
   const phoneInput = document.getElementById('clientPhone') as HTMLInputElement;
 
   nameInput.addEventListener('input', () => {
-    nameInput.value = normalizeBookingName(nameInput.value);
+    nameInput.value = nameInput.value.replace(/\s+/g, ' ');
     setFieldError(nameInput, null);
   });
 
@@ -430,9 +436,11 @@ function showBookingForm(time: string, durationMinutes: number) {
 async function submitBooking() {
   const nameInputElement = document.getElementById('clientName') as HTMLInputElement | null;
   const phoneInputElement = document.getElementById('clientPhone') as HTMLInputElement | null;
+  const instagramInputElement = document.getElementById('clientInstagram') as HTMLInputElement | null;
 
   const nameInput = nameInputElement?.value ?? '';
   const phoneInput = phoneInputElement?.value ?? '';
+  const instagramInput = instagramInputElement?.value.trim() ?? '';
 
   const nameError = validateBookingName(nameInput);
   if (nameError) {
@@ -487,7 +495,8 @@ async function submitBooking() {
           durationMinutes: currentSelectedDuration,
           isBooked: true,
           clientName: sanitizedName,
-          clientPhone: sanitizedPhone
+          clientPhone: sanitizedPhone,
+          clientInstagram: instagramInput
         }]
       };
       transaction.set(dayRef, nextDay);
@@ -501,7 +510,8 @@ async function submitBooking() {
       month: currentSelectedDay.month,
       time: currentSelectedTime,
       durationMinutes: currentSelectedDuration,
-      year: currentSelectedDay.year ?? new Date().getFullYear()
+      year: currentSelectedDay.year ?? new Date().getFullYear(),
+      clientInstagram: instagramInput
     });
 
     const savedDay = await runTransaction(firestore, async transaction => {
@@ -512,7 +522,7 @@ async function submitBooking() {
       const nextDay: Day = {
         ...dayFromFirestore,
         slots: dayFromFirestore.slots.map(slot => slot.id === bookingId
-          ? { ...slot, calendarEventId }
+          ? { ...slot, calendarEventId, clientInstagram: instagramInput }
           : slot)
       };
       transaction.set(dayRef, nextDay);

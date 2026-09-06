@@ -63,7 +63,7 @@ exports.createCalendarEvent = onRequest(
     }
 
     try {
-      const { clientName, clientPhone, date, month, time, durationMinutes, year } = request.body ?? {};
+      const { clientName, clientPhone, clientInstagram, date, month, time, durationMinutes, year } = request.body ?? {};
       if (!clientName || !clientPhone || !date || !month || !time || !durationMinutes || !year) {
         response.status(400).json({ error: 'Не хватает данных бронирования' });
         return;
@@ -81,7 +81,7 @@ exports.createCalendarEvent = onRequest(
         calendarId,
         requestBody: {
           summary: `Массаж: ${clientName}`,
-          description: `Клиент: ${clientName}\nТелефон: ${clientPhone}`,
+          description: `Клиент: ${clientName}\nТелефон: ${clientPhone}${clientInstagram ? `\nInstagram: ${clientInstagram}` : ''}`,
           start: { dateTime: eventDate.start, timeZone },
           end: { dateTime: eventDate.end, timeZone }
         }
