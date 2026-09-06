@@ -284,9 +284,13 @@ function getAvailableTimes(day: Day, durationMinutes: number): string[] {
 function renderTimePicker(day: Day, target: HTMLElement | null) {
   if (!target) return;
   const availableTimes = getAvailableTimes(day, currentSelectedDuration);
-  const durationOptions = [60, 90, 120].map(duration => `
-    <button class="btn ${duration === currentSelectedDuration ? 'btn-primary' : 'btn-outline-primary'} duration-btn" data-duration="${duration}">
-      ${duration / 60 === 1 ? '1 hora' : duration === 90 ? '1,5 horas' : '2 horas'}
+  const durationOptions = [
+    { minutes: 60, label: '1 hora', price: '50 €' },
+    { minutes: 90, label: '1,5 horas', price: '70 €' },
+    { minutes: 120, label: '2 horas', price: '90 €' }
+  ].map(option => `
+    <button class="btn ${option.minutes === currentSelectedDuration ? 'btn-primary' : 'btn-outline-primary'} duration-btn" data-duration="${option.minutes}">
+      <span>${option.label}</span><strong>${option.price}</strong>
     </button>
   `).join('');
   const timeOptions = availableTimes.length
