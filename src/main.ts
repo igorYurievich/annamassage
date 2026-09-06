@@ -193,28 +193,12 @@ function renderClientCalendar() {
       <h3 class="calendar-month-title">${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}</h3>
       <button class="calendar-arrow" id="nextMonth" type="button" aria-label="Mes siguiente">›</button>
     </div>
-    <div class="calendar-week-strip" id="calendar-week-strip"></div>
     <div class="calendar-week-labels">${dayLabels.map(label => `<span>${label}</span>`).join('')}</div>
     <div class="calendar-grid" id="calendar-grid"></div>
     <div class="calendar-time-panel" id="inline-time-picker"></div>
   `;
 
-  const weekStrip = document.getElementById('calendar-week-strip');
   const grid = document.getElementById('calendar-grid');
-  const weekStart = new Date(selectedCalendarDate);
-  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
-
-  for (let index = 0; index < 7; index += 1) {
-    const date = new Date(weekStart);
-    date.setDate(weekStart.getDate() + index);
-    const dateKey = getDateKey(date);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `week-day ${dateKey === getDateKey(selectedCalendarDate) ? 'is-selected' : ''}`;
-    button.innerHTML = `<span>${dayLabels[index]}</span><strong>${date.getDate()}</strong>`;
-    button.addEventListener('click', () => selectCalendarDate(date));
-    weekStrip?.appendChild(button);
-  }
 
   for (let index = 0; index < 42; index += 1) {
     const date = new Date(firstGridDay);

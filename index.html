@@ -171,44 +171,22 @@
         .calendar-arrow:hover {
             background: #eaf3ff;
         }
-        .calendar-week-strip,
         .calendar-week-labels,
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, minmax(0, 1fr));
             gap: 8px;
         }
-        .calendar-week-strip {
-            margin-bottom: 20px;
-        }
-        .week-day,
         .calendar-day {
             border: 1px solid transparent;
             background: transparent;
             color: #526a84;
         }
-        .week-day {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-            padding: 9px 4px;
-            border-radius: 15px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        .week-day strong {
-            color: #16283d;
-            font-size: 1.05rem;
-        }
-        .week-day.is-selected,
         .calendar-day.is-selected {
             color: #fff;
             background: #1d6fe8;
             box-shadow: 0 8px 18px rgba(29,111,232,0.2);
         }
-        .week-day.is-selected strong { color: #fff; }
         .calendar-week-labels {
             margin-bottom: 8px;
             color: #93a1b2;
@@ -407,7 +385,6 @@
                 padding: 15px 10px;
                 border-radius: 20px;
             }
-            .calendar-week-strip,
             .calendar-week-labels,
             .calendar-grid {
                 gap: 4px;
