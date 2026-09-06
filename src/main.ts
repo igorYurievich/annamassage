@@ -352,21 +352,17 @@ function setFieldError(input: HTMLInputElement | null, message: string | null) {
 }
 
 function formatBookingPhone(value: string): string {
-  let digits = value.replace(/\D/g, '');
-  if (digits.startsWith('34')) digits = digits.slice(2);
-  digits = digits.slice(0, 9);
-
-  if (digits.length <= 3) return `+34 ${digits}`.trim();
-  if (digits.length <= 6) return `+34 ${digits.slice(0, 3)} ${digits.slice(3)}`;
-  return `+34 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+  const hasPlus = value.trimStart().startsWith('+');
+  const digits = value.replace(/\D/g, '').slice(0, 15);
+  return `${hasPlus ? '+' : ''}${digits}`;
 }
 
 function validateBookingPhone(value: string): string | null {
   const cleaned = value.replace(/\s+/g, '');
 
   if (!cleaned) return 'Por favor, introduce tu teléfono.';
-  if (!/^\+34[679]\d{8}$/.test(cleaned)) {
-    return 'Introduce un teléfono válido, por ejemplo +34 600 000 000.';
+  if (!/^\+?[1-9]\d{6,14}$/.test(cleaned)) {
+    return 'Introduce un teléfono válido con código internacional, por ejemplo +34 600 000 000.';
   }
 
   return null;
@@ -387,7 +383,7 @@ function showBookingForm(time: string, durationMinutes: number) {
       </div>
       <div class="mb-4">
         <label class="form-label fw-bold">Su teléfono</label>
-        <input type="tel" id="clientPhone" class="form-control" placeholder="+34 600 000 000" required inputmode="tel" autocomplete="tel" value="+34 ">
+        <input type="tel" id="clientPhone" class="form-control" placeholder="+34 600 000 000" required inputmode="tel" autocomplete="tel">
         <div class="invalid-feedback d-block" id="clientPhoneError"></div>
       </div>
       <div class="mb-4">
