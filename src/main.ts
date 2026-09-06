@@ -33,6 +33,7 @@ interface Slot {
   clientName: string;
   clientPhone: string;
   durationMinutes?: number;
+  calendarEventId?: string;
 }
 
 interface Day {
@@ -53,9 +54,10 @@ interface GoogleCalendarEvent {
   year: number;
 }
 const googleCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/createCalendarEvent';
+const syncCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/syncCalendarBookings';
 
-async function createGoogleCalendarEvent(event: GoogleCalendarEvent): Promise<void> {
-  if (!googleCalendarApiUrl) return;
+async function createGoogleCalendarEvent(event: GoogleCalendarEvent): Promise<string> {
+  if (!googleCalendarApiUrl) throw new Error('Google Calendar недоступен');
 
   const response = await fetch(googleCalendarApiUrl, {
     method: 'POST',
@@ -64,6 +66,28 @@ async function createGoogleCalendarEvent(event: GoogleCalendarEvent): Promise<vo
   });
 
   if (!response.ok) throw new Error('Не удалось создать событие в Google Calendar');
+  const result = await response.json() as { eventId?: string };
+  if (!result.eventId) throw new Error('Google Calendar не вернул ID события');
+  return result.eventId;
+}
+
+async function syncBookingsWithCalendar(): Promise<void> {
+  const response = await fetch(syncCalendarApiUrl);
+  if (!response.ok) throw new Error('Не удалось синхронизировать Google Calendar');
+
+  const result = await response.json() as { eventIds?: string[] };
+  const activeEventIds = new Set(result.eventIds ?? []);
+  const daysToUpdate = db
+    .map(day => ({
+      ...day,
+      slots: day.slots.filter(slot => !slot.calendarEventId || activeEventIds.has(slot.calendarEventId))
+    }))
+    .filter((day, index) => day.slots.length !== db[index].slots.length);
+
+  if (daysToUpdate.length === 0) return;
+  await Promise.all(daysToUpdate.map(day => setDoc(doc(daysCollection, day.id), day)));
+  db = db.map(day => daysToUpdate.find(updatedDay => updatedDay.id === day.id) ?? day);
+  renderApp();
 }
 
 async function loadDB(): Promise<Day[]> {
@@ -121,6 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     db = await loadDB();
+    await syncBookingsWithCalendar();
     subscribeToDays();
   } catch (error) {
     console.error('Не удалось загрузить данные из Firestore', error);
@@ -137,6 +162,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     event.preventDefault();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
+  window.setInterval(() => {
+    syncBookingsWithCalendar().catch(error => console.error('Не удалось обновить занятость календаря', error));
+  }, 60000);
 });
 
 function renderApp() {
@@ -431,6 +459,7 @@ async function submitBooking() {
     if (!currentSelectedDay || !currentSelectedTime) throw new Error('Время не выбрано');
 
     const selectedDay = currentSelectedDay;
+    const bookingId = `booking-${Date.now()}`;
     const dayRef = doc(daysCollection, selectedDay.id);
     const updatedDay = await runTransaction(firestore, async transaction => {
       const daySnapshot = await transaction.get(dayRef);
@@ -452,7 +481,7 @@ async function submitBooking() {
       const nextDay: Day = {
         ...dayData,
         slots: [...dayData.slots, {
-          id: `booking-${Date.now()}`,
+          id: bookingId,
           time: currentSelectedTime,
           durationMinutes: currentSelectedDuration,
           isBooked: true,
@@ -464,7 +493,7 @@ async function submitBooking() {
       return nextDay;
     });
 
-    await createGoogleCalendarEvent({
+    const calendarEventId = await createGoogleCalendarEvent({
       clientName: sanitizedName,
       clientPhone: sanitizedPhone,
       date: currentSelectedDay.date,
@@ -474,7 +503,22 @@ async function submitBooking() {
       year: currentSelectedDay.year ?? new Date().getFullYear()
     });
 
-    db = db.map(day => day.id === updatedDay.id ? updatedDay : day);
+    const savedDay = await runTransaction(firestore, async transaction => {
+      const daySnapshot = await transaction.get(dayRef);
+      const dayFromFirestore = daySnapshot.data() as Day | undefined;
+      if (!dayFromFirestore) throw new Error('День бронирования не найден');
+
+      const nextDay: Day = {
+        ...dayFromFirestore,
+        slots: dayFromFirestore.slots.map(slot => slot.id === bookingId
+          ? { ...slot, calendarEventId }
+          : slot)
+      };
+      transaction.set(dayRef, nextDay);
+      return nextDay;
+    });
+
+    db = db.map(day => day.id === savedDay.id ? savedDay : updatedDay);
 
     if (modalTitle && modalBody) {
       modalTitle.textContent = '¡Reserva confirmada!';

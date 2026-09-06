@@ -93,3 +93,46 @@ exports.createCalendarEvent = onRequest(
     }
   }
 );
+
+exports.syncCalendarBookings = onRequest(
+  { region: 'us-central1', invoker: 'public', secrets: [googleServiceAccountKey] },
+  async (request, response) => {
+    response.set('Access-Control-Allow-Origin', getCorsOrigin(request));
+    response.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    response.set('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (request.method === 'OPTIONS') {
+      response.status(204).send('');
+      return;
+    }
+
+    if (request.method !== 'GET') {
+      response.status(405).json({ error: 'Метод не поддерживается' });
+      return;
+    }
+
+    try {
+      const credentials = JSON.parse(googleServiceAccountKey.value());
+      const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/calendar.readonly']
+      });
+      const calendar = google.calendar({ version: 'v3', auth });
+      const end = new Date();
+      end.setDate(end.getDate() + 60);
+      const events = await calendar.events.list({
+        calendarId,
+        timeMin: new Date().toISOString(),
+        timeMax: end.toISOString(),
+        singleEvents: true,
+        showDeleted: false,
+        maxResults: 2500
+      });
+
+      response.status(200).json({ eventIds: (events.data.items ?? []).map(event => event.id).filter(Boolean) });
+    } catch (error) {
+      console.error('Не удалось синхронизировать бронирования Google Calendar', error);
+      response.status(500).json({ error: 'Не удалось синхронизировать Google Calendar' });
+    }
+  }
+);
