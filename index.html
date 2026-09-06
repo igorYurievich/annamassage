@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserva de Masaje</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(180deg, #eef9ff 0%, #f8fcff 100%);
+            color: #1e2b3a;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .text-purple { color: #1d6fe8; }
+        .btn-outline-purple { border-color: #1d6fe8; color: #1d6fe8; }
+        .btn-outline-purple:hover { background-color: #1d6fe8; color: white; }
+        .navbar {
+            background: rgba(255,255,255,0.9) !important;
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(29, 111, 232, 0.08);
+        }
+        .hero-shell {
+            margin-top: 20px;
+            margin-bottom: 36px;
+        }
+        .hero-card {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 20px;
+            background: linear-gradient(135deg, rgba(29,111,232,0.08), rgba(255,255,255,0.95));
+            border: 1px solid rgba(29,111,232,0.12);
+            border-radius: 32px;
+            box-shadow: 0 18px 45px rgba(29, 111, 232, 0.08);
+            padding: 22px;
+        }
+        .hero-text-panel,
+        .hero-image-panel {
+            background: rgba(255,255,255,0.8);
+            border: 1px solid rgba(29,111,232,0.10);
+            border-radius: 24px;
+            padding: 26px;
+            height: 100%;
+        }
+        .hero-text-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(29,111,232,0.10);
+            color: #1d6fe8;
+            border: 1px solid rgba(29,111,232,0.14);
+            border-radius: 999px;
+            padding: 0.45rem 0.9rem;
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .hero-card h1 {
+            font-size: clamp(2.1rem, 4vw, 3.6rem);
+            line-height: 1.08;
+            letter-spacing: -0.05em;
+            margin: 1rem 0 0.8rem;
+            color: #16283d;
+        }
+        .hero-card p {
+            font-size: 1.04rem;
+            color: #48617b;
+            max-width: 540px;
+            margin: 0;
+        }
+        .hero-actions {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .hero-actions .btn {
+            border-radius: 999px;
+            padding: 0.8rem 1.4rem;
+            font-weight: 700;
+        }
+        .feature-pills {
+            margin-top: 1.3rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .feature-pills span {
+            padding: 0.55rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.9);
+            border: 1px solid rgba(29,111,232,0.12);
+            color: #355170;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .hero-visual {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+            width: 100%;
+            height: 100%;
+        }
+        .image-placeholder {
+            width: 100%;
+            height: 100%;
+            min-height: 330px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, #dfeeff 0%, #cfe4ff 100%);
+            border: 1px solid rgba(29,111,232,0.12);
+            overflow: hidden;
+            box-shadow: 0 18px 38px rgba(29, 111, 232, 0.14);
+            background-image: url('./image.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .calendar-card {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #d9ebff;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 8px 20px rgba(29, 111, 232, 0.06);
+        }
+        .calendar-card:hover {
+            border-color: #1d6fe8;
+            transform: translateY(-4px);
+            box-shadow: 0 14px 28px rgba(29, 111, 232, 0.12);
+        }
+        .btn-slot {
+            background: linear-gradient(135deg, #1d6fe8, #2f8bff);
+            color: white;
+            font-weight: 600;
+            border: none;
+        }
+        .btn-slot:hover { background: linear-gradient(135deg, #155dc7, #2976e7); color: white; }
+        .hidden { display: none !important; }
+        .card {
+            border: 1px solid rgba(29,111,232,0.10);
+            border-radius: 18px;
+            background: rgba(255,255,255,0.92);
+            box-shadow: 0 12px 28px rgba(21, 53, 82, 0.08);
+        }
+        .form-control, .form-select {
+            border-radius: 12px;
+            border: 1px solid #cfe1ff;
+            padding: 0.75rem 0.9rem;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #3a88ff;
+            box-shadow: 0 0 0 0.2rem rgba(29,111,232,0.12);
+        }
+        .btn-success {
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+        }
+        .admin-create-box {
+            background: linear-gradient(135deg, rgba(29,111,232,0.04), rgba(255,255,255,0.96));
+            border: 1px solid rgba(29,111,232,0.12);
+            border-radius: 22px;
+        }
+        .admin-field {
+            background: #fff;
+            border: 1px solid rgba(29,111,232,0.10);
+            border-radius: 16px;
+            padding: 0.9rem 1rem;
+            height: 100%;
+        }
+        .admin-field label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #355170;
+            margin-bottom: 0.55rem;
+        }
+        .helper-text {
+            font-size: 0.8rem;
+            color: #607793;
+            margin-top: 0.35rem;
+        }
+        .contact-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            margin: 0 auto 56px;
+            max-width: 720px;
+            padding: 18px 20px;
+            border: 1px solid rgba(29,111,232,0.12);
+            border-radius: 18px;
+            background: rgba(255,255,255,0.82);
+            box-shadow: 0 10px 24px rgba(29,111,232,0.07);
+        }
+        .contact-copy {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-align: left;
+        }
+        .contact-icon {
+            display: grid;
+            flex: 0 0 auto;
+            place-items: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            color: #fff;
+            background: #25d366;
+            box-shadow: 0 7px 16px rgba(37,211,102,0.24);
+        }
+        .contact-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+        .contact-title {
+            margin: 0;
+            color: #16283d;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .contact-subtitle {
+            margin: 2px 0 0;
+            color: #607793;
+            font-size: 0.88rem;
+        }
+        .contact-link {
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            gap: 7px;
+            padding: 0.65rem 0.95rem;
+            border-radius: 10px;
+            color: #128c4a;
+            background: #e9fbf0;
+            font-size: 0.88rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+        .contact-actions {
+            display: flex;
+            flex: 0 0 auto;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .contact-link:hover {
+            color: #0d713b;
+            background: #d8f7e4;
+            transform: translateY(-1px);
+        }
+        .contact-link svg {
+            width: 17px;
+            height: 17px;
+            fill: currentColor;
+        }
+        .contact-link.instagram {
+            color: #b52d72;
+            background: #fff0f7;
+        }
+        .contact-link.instagram:hover {
+            color: #92235c;
+            background: #ffe2ef;
+        }
+        @media (max-width: 767.98px) {
+            .hero-card {
+                grid-template-columns: 1fr;
+                gap: 14px;
+                padding: 14px;
+                border-radius: 24px;
+            }
+            .hero-text-panel,
+            .hero-image-panel {
+                padding: 20px;
+                border-radius: 18px;
+            }
+            .hero-card h1 {
+                font-size: clamp(2rem, 10vw, 2.7rem);
+            }
+            .hero-image-panel,
+            .hero-visual {
+                min-height: 0;
+            }
+            .image-placeholder {
+                min-height: 0;
+                height: auto;
+                aspect-ratio: 4 / 3;
+                border-radius: 18px;
+            }
+            .contact-card {
+                align-items: stretch;
+                flex-direction: column;
+                gap: 14px;
+                margin-bottom: 40px;
+            }
+            .contact-link {
+                justify-content: center;
+            }
+            .contact-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-light bg-light shadow-sm mb-5">
+        <div class="container">
+            <a class="navbar-brand text-purple fw-bold" href="#" id="homeLogo">Masajes Anna</a>
+            <button class="btn btn-outline-purple px-4" id="loginBtn">Iniciar sesión</button>
+            <button class="btn btn-outline-danger px-4 hidden" id="logoutBtn">Salir</button>
+        </div>
+    </nav>
+
+    <!-- Клиентский интерфейс -->
+    <div class="container" id="clientView">
+        <div class="hero-shell">
+            <div class="hero-card">
+                <div class="hero-text-panel">
+                    <span class="eyebrow">Masajes terapéuticos</span>
+                    <h1>Elija su fecha y hora para relajarse</h1>
+                    <p>Disfrute de un momento de calma, bienestar y descanso con un servicio pensado para cuidar cuerpo y mente.</p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary" id="reserveNowBtn" style="background-color: #1d6fe8; border-color: #1d6fe8;">Reservar ahora</button>
+                    </div>
+                    <div class="feature-pills">
+                        <span>Relajación</span>
+                        <span>Bienestar</span>
+                        <span>Profesional</span>
+                    </div>
+                </div>
+                <div class="hero-image-panel hero-visual">
+                    <div class="image-placeholder" aria-label="Massage service image"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mb-4">
+            <h2 class="fw-bold text-purple">Calendario de disponibilidad</h2>
+            <p class="text-muted mb-0">Elija una fecha y luego haga clic en la hora libre que prefiera.</p>
+        </div>
+        <div id="calendar-container" class="row row-cols-2 row-cols-md-4 g-3 mb-5"></div>
+
+        <div class="contact-card">
+            <div class="contact-copy">
+                <span class="contact-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="img">
+                        <path d="M12 2a9.9 9.9 0 0 0-8.56 14.9L2 22l5.25-1.38A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.08-1.12l-.3-.18-3.12.82.84-3.04-.2-.31A8 8 0 1 1 12 20Zm4.38-5.92c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-1.42-.71-2.35-1.27-3.29-2.87-.25-.43.25-.4.7-1.32.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.15 1.51.09.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28Z"/>
+                    </svg>
+                </span>
+                <div>
+                    <p class="contact-title">¿Tienes alguna duda?</p>
+                    <p class="contact-subtitle">Mándame un mensaje por WhatsApp</p>
+                </div>
+            </div>
+                <div class="contact-actions">
+                    <a class="contact-link" href="https://wa.me/34671455708" target="_blank" rel="noopener noreferrer" aria-label="Escribir por WhatsApp">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 2a9.9 9.9 0 0 0-8.56 14.9L2 22l5.25-1.38A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.08-1.12l-.3-.18-3.12.82.84-3.04-.2-.31A8 8 0 1 1 12 20Zm4.38-5.92c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-1.42-.71-2.35-1.27-3.29-2.87-.25-.43.25-.4.7-1.32.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.15 1.51.09.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28Z"/>
+                        </svg>
+                        WhatsApp
+                    </a>
+                    <a class="contact-link instagram" href="https://www.instagram.com/anna_massage_torrevieja/" target="_blank" rel="noopener noreferrer" aria-label="Открыть Instagram anna_massage_torrevieja">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2Zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.25-3.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z"/>
+                        </svg>
+                        Instagram
+                    </a>
+                </div>
+        </div>
+    </div>
+
+    <!-- Панель Администратора (Ани) -->
+    <div class="container hidden" id="adminView">
+        <div class="text-center mb-5">
+            <h1 class="fw-bold text-purple">Панель администратора</h1>
+            <p class="text-muted">Управление датами и временем</p>
+        </div>
+        <div class="card admin-create-box p-4 mb-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <h5 class="mb-0">Создать свободное окно</h5>
+                <span class="helper-text">Выберите дату и время для новой записи</span>
+            </div>
+            <div class="row g-3 align-items-stretch">
+                <div class="col-md-5">
+                    <div class="admin-field">
+                        <label for="newDate">Дата</label>
+                        <input type="date" id="newDate" class="form-control">
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="admin-field">
+                        <label>Время</label>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <select id="newTime" class="form-select" aria-label="Часы">
+                                    <option value="">Часы</option>
+                                    <option value="09">09</option>
+                                    <option value="10">10</option>
+                                    <option value="11">11</option>
+                                    <option value="12">12</option>
+                                    <option value="13">13</option>
+                                    <option value="14">14</option>
+                                    <option value="15">15</option>
+                                    <option value="16">16</option>
+                                    <option value="17">17</option>
+                                    <option value="18">18</option>
+                                    <option value="19">19</option>
+                                    <option value="20">20</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <select id="newMinute" class="form-select" aria-label="Минуты">
+                                    <option value="">Минуты</option>
+                                    <option value="00">00</option>
+                                    <option value="05">05</option>
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="20">20</option>
+                                    <option value="25">25</option>
+                                    <option value="30">30</option>
+                                    <option value="35">35</option>
+                                    <option value="40">40</option>
+                                    <option value="45">45</option>
+                                    <option value="50">50</option>
+                                    <option value="55">55</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex">
+                    <button class="btn btn-success w-100" id="addSlotBtn">Добавить</button>
+                </div>
+            </div>
+        </div>
+        <div id="admin-calendar-container" class="row row-cols-1 g-3"></div>
+    </div>
+
+    <!-- Модальное окно записи -->
+    <div class="modal fade" id="mainModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Horarios disponibles</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center" id="modalBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно входа -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Доступ для массажиста</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <input type="password" id="adminPassword" class="form-control mb-3" placeholder="Пароль">
+                    <button class="btn w-100 py-2 fw-bold" id="authBtn" style="background-color: #6f42c1; color: white;">Войти</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
