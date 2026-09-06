@@ -55,6 +55,7 @@ interface GoogleCalendarEvent {
 }
 const googleCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/createCalendarEvent';
 const syncCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/syncCalendarBookings';
+const sessionBufferMinutes = 30;
 
 async function createGoogleCalendarEvent(event: GoogleCalendarEvent): Promise<string> {
   if (!googleCalendarApiUrl) throw new Error('Google Calendar недоступен');
@@ -280,14 +281,14 @@ function getAvailableTimes(day: Day, durationMinutes: number): string[] {
     .filter(slot => slot.isBooked)
     .map(slot => ({
       start: timeToMinutes(slot.time),
-      end: timeToMinutes(slot.time) + (slot.durationMinutes ?? 60)
+      end: timeToMinutes(slot.time) + (slot.durationMinutes ?? 60) + sessionBufferMinutes
     }));
-  const latestStart = 22 * 60 - durationMinutes;
+  const latestStart = 22 * 60 - durationMinutes - sessionBufferMinutes;
   const availableTimes: string[] = [];
 
   for (let start = 8 * 60; start <= latestStart; start += 30) {
     const end = start + durationMinutes;
-    const overlaps = bookedSlots.some(slot => start < slot.end && end > slot.start);
+    const overlaps = bookedSlots.some(slot => start < slot.end && end + sessionBufferMinutes > slot.start);
     if (!overlaps) availableTimes.push(minutesToTime(start));
   }
 
@@ -470,8 +471,8 @@ async function submitBooking() {
       const overlaps = dayData.slots.some(item => {
         if (!item.isBooked) return false;
         const bookedStart = timeToMinutes(item.time);
-        const bookedEnd = bookedStart + (item.durationMinutes ?? 60);
-        return requestedStart < bookedEnd && requestedEnd > bookedStart;
+        const bookedEnd = bookedStart + (item.durationMinutes ?? 60) + sessionBufferMinutes;
+        return requestedStart < bookedEnd && requestedEnd + sessionBufferMinutes > bookedStart;
       });
 
       if (overlaps) {

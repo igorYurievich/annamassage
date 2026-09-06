@@ -5,6 +5,7 @@ const { google } = require('googleapis');
 const googleServiceAccountKey = defineSecret('GOOGLE_SERVICE_ACCOUNT_KEY');
 const calendarId = 'recuerdoigor@gmail.com';
 const timeZone = 'Europe/Madrid';
+const sessionBufferMinutes = 30;
 const monthNumbers = {
   enero: 1,
   febrero: 2,
@@ -38,7 +39,7 @@ function parseEventDate({ date, month, time, year, durationMinutes }) {
   if (hours > 23 || minutes > 59) throw new Error('Некорректное время бронирования');
 
   const start = new Date(eventYear, monthNumber - 1, day, hours, minutes);
-  const end = new Date(start.getTime() + Number(durationMinutes) * 60 * 1000);
+  const end = new Date(start.getTime() + (Number(durationMinutes) + sessionBufferMinutes) * 60 * 1000);
   const formatDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}T${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}:00`;
 
   return { start: formatDate(start), end: formatDate(end) };
