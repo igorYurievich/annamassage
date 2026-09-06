@@ -3,9 +3,7 @@ declare var bootstrap: any;
 import { initializeApp } from 'firebase/app';
 import {
   collection,
-  deleteDoc,
   doc,
-  getDoc,
   getDocs,
   getFirestore,
   onSnapshot,
@@ -26,7 +24,6 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const firestore = getFirestore(firebaseApp);
 const daysCollection = collection(firestore, 'days');
-const adminSettingsDocument = doc(firestore, 'settings', 'auth');
 let stopDaysListener: (() => void) | null = null;
 
 interface Slot {
@@ -35,6 +32,7 @@ interface Slot {
   isBooked: boolean;
   clientName: string;
   clientPhone: string;
+  durationMinutes?: number;
 }
 
 interface Day {
@@ -42,6 +40,7 @@ interface Day {
   dayOfWeek: string;
   date: string;
   month: string;
+  year?: number;
   slots: Slot[];
 }
 interface GoogleCalendarEvent {
@@ -50,6 +49,7 @@ interface GoogleCalendarEvent {
   date: string;
   month: string;
   time: string;
+  durationMinutes: number;
   year: number;
 }
 const googleCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/createCalendarEvent';
@@ -88,26 +88,6 @@ async function loadDB(): Promise<Day[]> {
   return legacyDays;
 }
 
-async function loadAdminPassword(): Promise<string> {
-  const snapshot = await getDoc(adminSettingsDocument);
-  const password = snapshot.data()?.password;
-
-  if (!snapshot.exists() || typeof password !== 'string' || !password) {
-    throw new Error('В Firestore не найден пароль администратора');
-  }
-
-  return password;
-}
-
-async function saveDay(day: Day) {
-  await setDoc(doc(daysCollection, day.id), day);
-}
-
-function getFirebaseErrorMessage(error: unknown): string {
-      year: new Date().getFullYear()
-  return error instanceof Error ? error.message : 'Неизвестная ошибка Firebase';
-}
-
 function subscribeToDays() {
   stopDaysListener?.();
   stopDaysListener = onSnapshot(daysCollection, snapshot => {
@@ -120,34 +100,24 @@ function subscribeToDays() {
 }
 
 let db: Day[] = [];
-let adminPassword = '';
 let currentSelectedDay: Day | null = null;
-let currentSelectedSlot: Slot | null = null;
-const adminSessionKey = 'massageAdminSession';
-const adminSessionCookie = 'massageAdminSession=true';
-let isAdmin = localStorage.getItem(adminSessionKey) === 'true' || document.cookie.includes(adminSessionCookie);
+let currentSelectedTime = '';
+let currentSelectedDuration = 60;
 
 let modalInstance: any = null;
-let loginModalInstance: any = null;
 
 // DOM Elements
 const clientView = document.getElementById('clientView');
-const adminView = document.getElementById('adminView');
 const calendarContainer = document.getElementById('calendar-container');
-const adminCalendarContainer = document.getElementById('admin-calendar-container');
 const homeLogo = document.getElementById('homeLogo');
-const loginBtn = document.getElementById('loginBtn');
-const logoutBtn = document.getElementById('logoutBtn');
 const modalTitle = document.getElementById('modalTitle');
 const modalBody = document.getElementById('modalBody');
 
 document.addEventListener('DOMContentLoaded', async () => {
   modalInstance = new bootstrap.Modal(document.getElementById('mainModal'));
-  loginModalInstance = new bootstrap.Modal(document.getElementById('loginModal'));
 
   try {
     db = await loadDB();
-    adminPassword = await loadAdminPassword();
     subscribeToDays();
   } catch (error) {
     console.error('Не удалось загрузить данные из Firestore', error);
@@ -160,59 +130,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('calendar-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
-  const logout = () => {
-    isAdmin = false;
-    localStorage.removeItem(adminSessionKey);
-    document.cookie = 'massageAdminSession=; max-age=0; path=/';
-    renderApp();
-  };
-
-  loginBtn?.addEventListener('click', () => loginModalInstance.show());
-  logoutBtn?.addEventListener('click', logout);
   homeLogo?.addEventListener('click', event => {
     event.preventDefault();
-    logout();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-
-  const loginWithPassword = () => {
-    const pass = (document.getElementById('adminPassword') as HTMLInputElement).value;
-    if (adminPassword && pass === adminPassword) {
-      isAdmin = true;
-      localStorage.setItem(adminSessionKey, 'true');
-      document.cookie = 'massageAdminSession=true; max-age=31536000; path=/';
-      (document.getElementById('adminPassword') as HTMLInputElement).value = '';
-      loginModalInstance.hide();
-      renderApp();
-    } else {
-      alert('Неверный пароль');
-    }
-  };
-
-  document.getElementById('authBtn')?.addEventListener('click', loginWithPassword);
-  document.getElementById('adminPassword')?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      loginWithPassword();
-    }
-  });
-
-  document.getElementById('addSlotBtn')?.addEventListener('click', addNewSlot);
 });
 
 function renderApp() {
-  if (isAdmin) {
-    clientView?.classList.add('hidden');
-    loginBtn?.classList.add('hidden');
-    adminView?.classList.remove('hidden');
-    logoutBtn?.classList.remove('hidden');
-    renderAdminCalendar();
-  } else {
-    adminView?.classList.add('hidden');
-    logoutBtn?.classList.add('hidden');
-    clientView?.classList.remove('hidden');
-    loginBtn?.classList.remove('hidden');
-    renderClientCalendar();
-  }
+  clientView?.classList.remove('hidden');
+  renderClientCalendar();
 }
 
 // --- КЛИЕНТСКАЯ ЧАСТЬ ---
@@ -220,9 +146,13 @@ function renderClientCalendar() {
   if (!calendarContainer) return;
   calendarContainer.innerHTML = '';
 
-  db.forEach(day => {
-    const hasFreeSlots = day.slots.some(slot => !slot.isBooked);
-    if (!hasFreeSlots) return;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let offset = 0; offset < 45; offset += 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + offset);
+    const day = getDayForDate(date);
 
     const col = document.createElement('div');
     col.className = 'col';
@@ -235,6 +165,79 @@ function renderClientCalendar() {
     `;
     col.addEventListener('click', () => openDayModal(day));
     calendarContainer.appendChild(col);
+  }
+}
+
+function getDayForDate(date: Date): Day {
+  const dayOfWeek = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date);
+  const month = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(date);
+  const dateNumber = String(date.getDate());
+  const storedDay = db.find(item => item.date === dateNumber && item.month === month);
+
+  return storedDay ?? {
+    id: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+    dayOfWeek,
+    date: dateNumber,
+    month,
+    year: date.getFullYear(),
+    slots: []
+  };
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+function getAvailableTimes(day: Day, durationMinutes: number): string[] {
+  const bookedSlots = day.slots
+    .filter(slot => slot.isBooked)
+    .map(slot => ({
+      start: timeToMinutes(slot.time),
+      end: timeToMinutes(slot.time) + (slot.durationMinutes ?? 60)
+    }));
+  const latestStart = 22 * 60 - durationMinutes;
+  const availableTimes: string[] = [];
+
+  for (let start = 8 * 60; start <= latestStart; start += 30) {
+    const end = start + durationMinutes;
+    const overlaps = bookedSlots.some(slot => start < slot.end && end > slot.start);
+    if (!overlaps) availableTimes.push(minutesToTime(start));
+  }
+
+  return availableTimes;
+}
+
+function renderTimePicker(day: Day) {
+  if (!modalBody) return;
+  const availableTimes = getAvailableTimes(day, currentSelectedDuration);
+  const durationOptions = [60, 90, 120].map(duration => `
+    <button class="btn ${duration === currentSelectedDuration ? 'btn-primary' : 'btn-outline-primary'} duration-btn" data-duration="${duration}">
+      ${duration / 60 === 1 ? '1 hora' : duration === 90 ? '1,5 horas' : '2 horas'}
+    </button>
+  `).join('');
+  const timeOptions = availableTimes.length
+    ? availableTimes.map(time => `<button class="btn btn-slot py-2 time-btn" data-time="${time}">${time}</button>`).join('')
+    : '<p class="text-muted mb-0">No hay horarios disponibles para esta duración.</p>';
+
+  modalBody.innerHTML = `
+    <p class="text-muted mb-3">Elige la duración y la hora de inicio:</p>
+    <div class="btn-group w-100 mb-4" role="group" aria-label="Duración del masaje">${durationOptions}</div>
+    <div class="d-grid gap-2">${timeOptions}</div>
+  `;
+
+  modalBody.querySelectorAll<HTMLButtonElement>('.duration-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      currentSelectedDuration = Number(button.dataset.duration);
+      renderTimePicker(day);
+    });
+  });
+  modalBody.querySelectorAll<HTMLButtonElement>('.time-btn').forEach(button => {
+    button.addEventListener('click', () => showBookingForm(button.dataset.time ?? '', currentSelectedDuration));
   });
 }
 
@@ -242,25 +245,9 @@ function openDayModal(day: Day) {
   currentSelectedDay = day;
   if (!modalTitle || !modalBody) return;
 
-  modalTitle.textContent = `Horarios: ${day.date} ${day.month}`;
-  let html = `<p class="text-muted mb-4">Seleccione la hora para su cita:</p><div class="d-grid gap-3">`;
-  
-  day.slots.forEach(slot => {
-    if (!slot.isBooked) {
-      html += `<button class="btn btn-slot py-2" data-slot-id="${slot.id}">${slot.time}</button>`;
-    }
-  });
-  html += `</div>`;
-  modalBody.innerHTML = html;
-
-  modalBody.querySelectorAll('.btn-slot').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const slotId = (e.target as HTMLButtonElement).getAttribute('data-slot-id');
-      const selectedSlot = day.slots.find(s => s.id === slotId);
-      if (selectedSlot) showBookingForm(selectedSlot);
-    });
-  });
-
+  modalTitle.textContent = `Reserva: ${day.date} ${day.month}`;
+  currentSelectedDuration = 60;
+  renderTimePicker(day);
   modalInstance.show();
 }
 
@@ -314,11 +301,12 @@ function validateBookingPhone(value: string): string | null {
   return null;
 }
 
-function showBookingForm(slot: Slot) {
-  currentSelectedSlot = slot;
+function showBookingForm(time: string, durationMinutes: number) {
+  currentSelectedTime = time;
+  currentSelectedDuration = durationMinutes;
   if (!modalTitle || !modalBody) return;
 
-  modalTitle.textContent = `Confirmar reserva: ${slot.time}`;
+  modalTitle.textContent = `Confirmar reserva: ${time}`;
   modalBody.innerHTML = `
     <div class="text-start">
       <div class="mb-3">
@@ -385,23 +373,37 @@ async function submitBooking() {
   }
 
   try {
-    if (!currentSelectedDay || !currentSelectedSlot) throw new Error('Слот не выбран');
+    if (!currentSelectedDay || !currentSelectedTime) throw new Error('Время не выбрано');
 
-    const dayRef = doc(daysCollection, currentSelectedDay.id);
+    const selectedDay = currentSelectedDay;
+    const dayRef = doc(daysCollection, selectedDay.id);
     const updatedDay = await runTransaction(firestore, async transaction => {
       const daySnapshot = await transaction.get(dayRef);
       const dayFromFirestore = daySnapshot.data() as Day | undefined;
-      const slot = dayFromFirestore?.slots.find(item => item.id === currentSelectedSlot?.id);
+      const dayData = dayFromFirestore ?? selectedDay;
+      const requestedStart = timeToMinutes(currentSelectedTime);
+      const requestedEnd = requestedStart + currentSelectedDuration;
+      const overlaps = dayData.slots.some(item => {
+        if (!item.isBooked) return false;
+        const bookedStart = timeToMinutes(item.time);
+        const bookedEnd = bookedStart + (item.durationMinutes ?? 60);
+        return requestedStart < bookedEnd && requestedEnd > bookedStart;
+      });
 
-      if (!dayFromFirestore || !slot || slot.isBooked) {
+      if (overlaps) {
         throw new Error('Слот уже забронирован');
       }
 
       const nextDay: Day = {
-        ...dayFromFirestore,
-        slots: dayFromFirestore.slots.map(item => item.id === slot.id
-          ? { ...item, isBooked: true, clientName: sanitizedName, clientPhone: sanitizedPhone }
-          : item)
+        ...dayData,
+        slots: [...dayData.slots, {
+          id: `booking-${Date.now()}`,
+          time: currentSelectedTime,
+          durationMinutes: currentSelectedDuration,
+          isBooked: true,
+          clientName: sanitizedName,
+          clientPhone: sanitizedPhone
+        }]
       };
       transaction.set(dayRef, nextDay);
       return nextDay;
@@ -412,8 +414,9 @@ async function submitBooking() {
       clientPhone: sanitizedPhone,
       date: currentSelectedDay.date,
       month: currentSelectedDay.month,
-      time: currentSelectedSlot.time,
-      year: new Date().getFullYear()
+      time: currentSelectedTime,
+      durationMinutes: currentSelectedDuration,
+      year: currentSelectedDay.year ?? new Date().getFullYear()
     });
 
     db = db.map(day => day.id === updatedDay.id ? updatedDay : day);
@@ -435,109 +438,3 @@ async function submitBooking() {
     }
   }
 }
-
-// --- АДМИНСКАЯ ЧАСТЬ ---
-function renderAdminCalendar() {
-  if (!adminCalendarContainer) return;
-  adminCalendarContainer.innerHTML = '';
-
-  if (db.length === 0) {
-    adminCalendarContainer.innerHTML = '<p class="text-muted">Пока нет созданных дат.</p>';
-    return;
-  }
-
-  db.forEach(day => {
-    const dayCard = document.createElement('div');
-    dayCard.className = 'card p-3 shadow-sm';
-    
-    let slotsHtml = day.slots.map(s => `
-      <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-        <span>🕒 ${s.time}</span>
-        ${s.isBooked 
-          ? `<span class="badge bg-danger">Забронировано: ${s.clientName} (${s.clientPhone})</span>` 
-          : `<span class="badge bg-success">Свободно</span>`
-        }
-        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSlot('${day.id}', '${s.id}')">X</button>
-      </div>
-    `).join('');
-
-    dayCard.innerHTML = `
-      <div class="d-flex justify-content-between">
-        <h5 class="text-purple mb-3">${day.dayOfWeek}, ${day.date} ${day.month}</h5>
-        <button type="button" class="btn btn-sm btn-danger" onclick="deleteDay('${day.id}')">Удалить день</button>
-      </div>
-      <div>${slotsHtml || '<small class="text-muted">На этот день пока нет времени.</small>'}</div>
-    `;
-    adminCalendarContainer.appendChild(dayCard);
-  });
-}
-
-async function addNewSlot() {
-  const dateInput = (document.getElementById('newDate') as HTMLInputElement).value;
-  const hour = (document.getElementById('newTime') as HTMLSelectElement).value;
-  const minute = (document.getElementById('newMinute') as HTMLSelectElement).value;
-  const time = hour && minute ? `${hour}:${minute}` : '';
-
-  if (!dateInput || !time) {
-    alert('Выберите дату и время.');
-    return;
-  }
-
-  const dateObject = new Date(`${dateInput}T12:00:00`);
-  const date = String(dateObject.getDate());
-  const month = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(dateObject);
-  const dayOfWeek = new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(dateObject);
-
-  let day = db.find(d => d.date === date && d.month === month);
-
-  if (!day) {
-    day = { id: 'd' + Date.now(), dayOfWeek, date, month, slots: [] };
-    db.push(day);
-  }
-
-  day.slots.push({ id: 's' + Date.now(), time, isBooked: false, clientName: '', clientPhone: '' });
-
-  try {
-    await saveDay(day);
-  } catch (error) {
-    console.error('Не удалось сохранить сеанс', error);
-    alert('Сеанс не сохранён. Проверьте подключение к Firebase.');
-    return;
-  }
-
-  (document.getElementById('newDate') as HTMLInputElement).value = '';
-  (document.getElementById('newTime') as HTMLSelectElement).value = '';
-  (document.getElementById('newMinute') as HTMLSelectElement).value = '';
-  renderAdminCalendar();
-}
-
-// Глобальные функции для кнопок удаления (так как они рендерятся через строку)
-(window as any).deleteSlot = async (dayId: string, slotId: string) => {
-  const day = db.find(d => d.id === dayId);
-  if (!day) return;
-
-  const updatedDay = {
-    ...day,
-    slots: day.slots.filter(slot => slot.id !== slotId)
-  };
-
-  try {
-    await saveDay(updatedDay);
-    db = db.map(item => item.id === dayId ? updatedDay : item);
-    renderAdminCalendar();
-  } catch (error) {
-    console.error('Не удалось удалить сеанс', error);
-    alert(`Не удалось удалить сеанс: ${getFirebaseErrorMessage(error)}`);
-  }
-};
-
-(window as any).deleteDay = async (dayId: string) => {
-  try {
-    await deleteDoc(doc(daysCollection, dayId));
-    db = db.filter(day => day.id !== dayId);
-    renderAdminCalendar();
-  } catch (error) {
-    console.error('Не удалось удалить день', error);
-    alert(`Не удалось удалить день: ${getFirebaseErrorMessage(error)}`);
-  }
-};

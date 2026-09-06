@@ -25,22 +25,23 @@ function getCorsOrigin(request) {
   return origin ?? '*';
 }
 
-function parseEventDate({ date, month, time, year }) {
+function parseEventDate({ date, month, time, year, durationMinutes }) {
   const monthNumber = monthNumbers[String(month).toLowerCase()];
   const day = Number(date);
   const eventYear = Number(year);
 
-  if (!monthNumber || !Number.isInteger(day) || !Number.isInteger(eventYear) || !/^\d{2}:\d{2}$/.test(time)) {
+  if (!monthNumber || !Number.isInteger(day) || !Number.isInteger(eventYear) || ![60, 90, 120].includes(Number(durationMinutes)) || !/^\d{2}:\d{2}$/.test(time)) {
     throw new Error('Некорректная дата или время бронирования');
   }
 
   const [hours, minutes] = time.split(':').map(Number);
   if (hours > 23 || minutes > 59) throw new Error('Некорректное время бронирования');
 
-  return {
-    start: `${eventYear}-${String(monthNumber).padStart(2, '0')}-${String(day).padStart(2, '0')}T${time}:00`,
-    end: `${eventYear}-${String(monthNumber).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours + 1).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
-  };
+  const start = new Date(eventYear, monthNumber - 1, day, hours, minutes);
+  const end = new Date(start.getTime() + Number(durationMinutes) * 60 * 1000);
+  const formatDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}T${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}:00`;
+
+  return { start: formatDate(start), end: formatDate(end) };
 }
 
 exports.createCalendarEvent = onRequest(
@@ -61,8 +62,8 @@ exports.createCalendarEvent = onRequest(
     }
 
     try {
-      const { clientName, clientPhone, date, month, time, year } = request.body ?? {};
-      if (!clientName || !clientPhone || !date || !month || !time || !year) {
+      const { clientName, clientPhone, date, month, time, durationMinutes, year } = request.body ?? {};
+      if (!clientName || !clientPhone || !date || !month || !time || !durationMinutes || !year) {
         response.status(400).json({ error: 'Не хватает данных бронирования' });
         return;
       }
@@ -73,7 +74,7 @@ exports.createCalendarEvent = onRequest(
         scopes: ['https://www.googleapis.com/auth/calendar']
       });
       const calendar = google.calendar({ version: 'v3', auth });
-      const eventDate = parseEventDate({ date, month, time, year });
+      const eventDate = parseEventDate({ date, month, time, durationMinutes, year });
 
       const createdEvent = await calendar.events.insert({
         calendarId,
