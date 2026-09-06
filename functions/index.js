@@ -3,7 +3,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { google } = require('googleapis');
 
 const googleServiceAccountKey = defineSecret('GOOGLE_SERVICE_ACCOUNT_KEY');
-const calendarId = 'igoryurievich1@gmail.com';
+const calendarId = 'recuerdoigor@gmail.com';
 const timeZone = 'Europe/Madrid';
 const monthNumbers = {
   enero: 1,
