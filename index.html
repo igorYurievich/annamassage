@@ -208,6 +208,11 @@
             transform: translateY(-1px);
         }
         .calendar-day.is-muted { color: #b8c3d0; }
+        .calendar-day.is-past {
+            color: #c8d0da;
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
         .calendar-day.is-today:not(.is-selected) {
             border-color: #8ebcff;
             color: #1d6fe8;
@@ -281,6 +286,30 @@
             background: rgba(255,255,255,0.82);
             box-shadow: 0 10px 24px rgba(29,111,232,0.07);
         }
+        .active-reservations {
+            max-width: 720px;
+            margin: 0 auto 40px;
+            padding: 22px;
+            border: 1px solid rgba(29,111,232,0.12);
+            border-radius: 18px;
+            background: rgba(255,255,255,0.88);
+            box-shadow: 0 10px 24px rgba(29,111,232,0.07);
+        }
+        .active-reservation {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 0;
+            border-top: 1px solid #e8eef6;
+            text-align: left;
+        }
+        .active-reservation:first-child { border-top: 0; }
+        .active-reservation strong,
+        .active-reservation span { display: block; }
+        .active-reservation strong { color: #16283d; }
+        .active-reservation span { margin-top: 3px; color: #607793; font-size: 0.9rem; }
+        .cancel-reservation-btn { flex: 0 0 auto; }
         .contact-copy {
             display: flex;
             align-items: center;
@@ -365,6 +394,44 @@
             color: #0d713b;
             background: #d8f7e4;
         }
+        .language-switcher {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-left: auto;
+        }
+        .language-button {
+            border: 1px solid #dce8f7;
+            border-radius: 10px;
+            background: #f6faff;
+            padding: 5px 7px;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .language-button:hover,
+        .language-button.is-active { background: #eaf3ff; border-color: #1d6fe8; }
+        .flag-icon {
+            display: inline-block;
+            width: 25px;
+            height: 18px;
+            border: 1px solid rgba(22, 40, 61, 0.18);
+            border-radius: 3px;
+            box-shadow: 0 1px 2px rgba(22, 40, 61, 0.14);
+            vertical-align: middle;
+        }
+        .flag-es { background: linear-gradient(to bottom, #aa151b 0 25%, #f1bf00 25% 75%, #aa151b 75%); }
+        .flag-gb {
+            background:
+                linear-gradient(33deg, transparent 43%, #fff 43% 48%, #c8102e 48% 52%, #fff 52% 57%, transparent 57%),
+                linear-gradient(-33deg, transparent 43%, #fff 43% 48%, #c8102e 48% 52%, #fff 52% 57%, transparent 57%),
+                linear-gradient(to right, transparent 38%, #fff 38% 62%, transparent 62%),
+                linear-gradient(to bottom, transparent 30%, #fff 30% 70%, transparent 70%),
+                linear-gradient(to right, transparent 44%, #c8102e 44% 56%, transparent 56%),
+                linear-gradient(to bottom, transparent 35%, #c8102e 35% 65%, transparent 65%), #012169;
+        }
+        .flag-de { background: linear-gradient(to bottom, #000 0 33.33%, #dd0000 33.33% 66.66%, #ffce00 66.66%); }
+        .flag-ru { background: linear-gradient(to bottom, #fff 0 33.33%, #0039a6 33.33% 66.66%, #d52b1e 66.66%); }
         @media (max-width: 767.98px) {
             .hero-card {
                 grid-template-columns: 1fr;
@@ -396,6 +463,15 @@
                 gap: 14px;
                 margin-bottom: 40px;
             }
+            .active-reservations {
+                padding: 18px 15px;
+            }
+            .active-reservation {
+                align-items: stretch;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .cancel-reservation-btn { width: 100%; }
             .contact-link {
                 justify-content: center;
             }
@@ -416,7 +492,13 @@
 <body>
     <nav class="navbar navbar-light bg-light shadow-sm mb-5">
         <div class="container">
-            <a class="navbar-brand text-purple fw-bold" href="#" id="homeLogo">Masajes Anna</a>
+            <a class="navbar-brand text-purple fw-bold" href="#" id="homeLogo" data-i18n="brand">Anna Massage</a>
+            <div class="language-switcher" aria-label="Language selector">
+                <button class="language-button" type="button" data-language="es" title="Español" aria-label="Español"><span class="flag-icon flag-es" aria-hidden="true"></span></button>
+                <button class="language-button" type="button" data-language="en" title="English" aria-label="English"><span class="flag-icon flag-gb" aria-hidden="true"></span></button>
+                <button class="language-button" type="button" data-language="de" title="Deutsch" aria-label="Deutsch"><span class="flag-icon flag-de" aria-hidden="true"></span></button>
+                <button class="language-button" type="button" data-language="ru" title="Русский" aria-label="Русский"><span class="flag-icon flag-ru" aria-hidden="true"></span></button>
+            </div>
         </div>
     </nav>
 
@@ -425,16 +507,16 @@
         <div class="hero-shell">
             <div class="hero-card">
                 <div class="hero-text-panel">
-                    <span class="eyebrow">Masajes terapéuticos</span>
-                    <h1>Elija su fecha y hora para relajarse</h1>
-                    <p>Disfrute de un momento de calma, bienestar y descanso con un servicio pensado para cuidar cuerpo y mente.</p>
+                    <span class="eyebrow" data-i18n="eyebrow">Masajes terapéuticos</span>
+                    <h1 data-i18n="heroTitle">Elija su fecha y hora para relajarse</h1>
+                    <p data-i18n="heroText">Disfrute de un momento de calma, bienestar y descanso con un servicio pensado para cuidar cuerpo y mente.</p>
                     <div class="hero-actions">
-                        <button class="btn btn-primary" id="reserveNowBtn" style="background-color: #1d6fe8; border-color: #1d6fe8;">Reservar ahora</button>
+                        <button class="btn btn-primary" id="reserveNowBtn" style="background-color: #1d6fe8; border-color: #1d6fe8;" data-i18n="reserveNow">Reservar ahora</button>
                     </div>
                     <div class="feature-pills">
-                        <span>Relajación</span>
-                        <span>Bienestar</span>
-                        <span>Profesional</span>
+                        <span data-i18n="relaxation">Relajación</span>
+                        <span data-i18n="wellness">Bienestar</span>
+                        <span data-i18n="professional">Profesional</span>
                     </div>
                 </div>
                 <div class="hero-image-panel hero-visual">
@@ -444,10 +526,12 @@
         </div>
 
         <div class="text-center mb-4">
-            <h2 class="fw-bold text-purple">Calendario de disponibilidad</h2>
-            <p class="text-muted mb-0">Elija una fecha, la duración y una hora disponible. Dejamos 30 minutos entre citas.</p>
+            <h2 class="fw-bold text-purple" data-i18n="calendarTitle">Calendario de disponibilidad</h2>
+            <p class="text-muted mb-0" data-i18n="calendarText">Elija una fecha, la duración y una hora disponible. Dejamos 30 minutos entre citas.</p>
         </div>
         <div id="calendar-container" class="mb-5"></div>
+
+        <section class="active-reservations" id="reservations-container" aria-live="polite"></section>
 
         <div class="contact-card">
             <div class="contact-copy">
@@ -457,8 +541,8 @@
                     </svg>
                 </span>
                 <div>
-                    <p class="contact-title">Instagram</p>
-                    <p class="contact-subtitle">anna_massage_torrevieja</p>
+                    <p class="contact-title" data-i18n="instagramTitle">Instagram</p>
+                    <p class="contact-subtitle" data-i18n="instagramSubtitle">anna_massage_torrevieja</p>
                 </div>
             </div>
             <div class="contact-actions">
@@ -466,7 +550,7 @@
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2Zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0-3 0 3Zm5.25-3.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z"/>
                     </svg>
-                    Abrir Instagram
+                    <span data-i18n="openInstagram">Abrir Instagram</span>
                 </a>
             </div>
         </div>
@@ -479,13 +563,13 @@
                     </svg>
                 </span>
                 <div>
-                    <p class="contact-title">WhatsApp</p>
+                    <p class="contact-title" data-i18n="whatsapp">WhatsApp</p>
                     <p class="contact-subtitle">+34 674 88 68 67</p>
                 </div>
             </div>
             <div class="contact-actions">
                 <a class="contact-link whatsapp" href="https://wa.me/34674886867" target="_blank" rel="noopener noreferrer" aria-label="Escribir por WhatsApp al +34 674 88 68 67">
-                    Написать
+                    <span data-i18n="write">Escribir</span>
                 </a>
             </div>
         </div>

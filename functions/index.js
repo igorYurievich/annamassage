@@ -63,7 +63,7 @@ exports.createCalendarEvent = onRequest(
     }
 
     try {
-      const { clientName, clientPhone, clientInstagram, date, month, time, durationMinutes, year } = request.body ?? {};
+      const { clientName, clientPhone, clientInstagram, clientNote, date, month, time, durationMinutes, year } = request.body ?? {};
       if (!clientName || !clientPhone || !date || !month || !time || !durationMinutes || !year) {
         response.status(400).json({ error: 'Не хватает данных бронирования' });
         return;
@@ -81,7 +81,7 @@ exports.createCalendarEvent = onRequest(
         calendarId,
         requestBody: {
           summary: `Массаж: ${clientName}`,
-          description: `Клиент: ${clientName}\nТелефон: ${clientPhone}${clientInstagram ? `\nInstagram: ${clientInstagram}` : ''}`,
+          description: `Клиент: ${clientName}\nТелефон: ${clientPhone}${clientInstagram ? `\nInstagram: ${clientInstagram}` : ''}${clientNote ? `\nПримечание: ${clientNote}` : ''}`,
           start: { dateTime: eventDate.start, timeZone },
           end: { dateTime: eventDate.end, timeZone }
         }
@@ -91,6 +91,49 @@ exports.createCalendarEvent = onRequest(
     } catch (error) {
       console.error('Не удалось создать событие Google Calendar', error);
       response.status(500).json({ error: 'Не удалось создать событие в Google Calendar' });
+    }
+  }
+);
+
+exports.deleteCalendarEvent = onRequest(
+  { region: 'us-central1', invoker: 'public', secrets: [googleServiceAccountKey] },
+  async (request, response) => {
+    response.set('Access-Control-Allow-Origin', getCorsOrigin(request));
+    response.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.set('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (request.method === 'OPTIONS') {
+      response.status(204).send('');
+      return;
+    }
+
+    if (request.method !== 'POST') {
+      response.status(405).json({ error: 'Método no soportado' });
+      return;
+    }
+
+    try {
+      const { eventId } = request.body ?? {};
+      if (!eventId) {
+        response.status(400).json({ error: 'Falta el ID del evento' });
+        return;
+      }
+
+      const credentials = JSON.parse(googleServiceAccountKey.value());
+      const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/calendar']
+      });
+      const calendar = google.calendar({ version: 'v3', auth });
+      await calendar.events.delete({ calendarId, eventId });
+      response.status(204).send('');
+    } catch (error) {
+      if (error?.code === 404) {
+        response.status(204).send('');
+        return;
+      }
+      console.error('Не se pudo eliminar el evento de Google Calendar', error);
+      response.status(500).json({ error: 'No se pudo cancelar el evento del calendario' });
     }
   }
 );
