@@ -241,20 +241,19 @@
         }
         .time-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 10px;
+            max-width: 360px;
+            margin-inline: auto;
         }
-        .calendar-time-panel .btn-slot {
-            border: 1px solid #dce8f7;
-            border-radius: 12px;
-            color: #31506f;
-            background: #fff;
-            box-shadow: none;
+        .time-select-label {
+            color: #526a84;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-align: left;
         }
-        .calendar-time-panel .btn-slot:hover {
-            color: #1d6fe8;
-            background: #edf5ff;
-            border-color: #8ebcff;
+        .time-select {
+            min-height: 48px;
+            font-weight: 700;
         }
         .btn-slot {
             background: linear-gradient(135deg, #1d6fe8, #2f8bff);
@@ -412,9 +411,6 @@
             .calendar-week-labels,
             .calendar-grid {
                 gap: 4px;
-            }
-            .time-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
     </style>

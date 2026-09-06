@@ -275,7 +275,12 @@ function renderTimePicker(day: Day, target: HTMLElement | null) {
     </button>
   `).join('');
   const timeOptions = availableTimes.length
-    ? availableTimes.map(time => `<button class="btn btn-slot py-2 time-btn" data-time="${time}">${time}</button>`).join('')
+    ? `<label class="time-select-label" for="bookingTime">Hora de inicio</label>
+       <select class="form-select time-select" id="bookingTime">
+         <option value="">Selecciona una hora</option>
+         ${availableTimes.map(time => `<option value="${time}">${time}</option>`).join('')}
+       </select>
+       <button class="btn btn-primary w-100 continue-time-btn" id="continueTimeBtn" disabled>Continuar</button>`
     : '<p class="text-muted mb-0">No hay horarios disponibles para esta duración.</p>';
 
   target.innerHTML = `
@@ -290,8 +295,13 @@ function renderTimePicker(day: Day, target: HTMLElement | null) {
       renderTimePicker(day, target);
     });
   });
-  target.querySelectorAll<HTMLButtonElement>('.time-btn').forEach(button => {
-    button.addEventListener('click', () => showBookingForm(button.dataset.time ?? '', currentSelectedDuration));
+  const timeSelect = target.querySelector<HTMLSelectElement>('#bookingTime');
+  const continueButton = target.querySelector<HTMLButtonElement>('#continueTimeBtn');
+  timeSelect?.addEventListener('change', () => {
+    if (continueButton) continueButton.disabled = !timeSelect.value;
+  });
+  continueButton?.addEventListener('click', () => {
+    if (timeSelect?.value) showBookingForm(timeSelect.value, currentSelectedDuration);
   });
 }
 
