@@ -50,8 +50,9 @@ interface GoogleCalendarEvent {
   date: string;
   month: string;
   time: string;
+  year: number;
 }
-const googleCalendarApiUrl = '';
+const googleCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/createCalendarEvent';
 
 async function createGoogleCalendarEvent(event: GoogleCalendarEvent): Promise<void> {
   if (!googleCalendarApiUrl) return;
@@ -103,6 +104,7 @@ async function saveDay(day: Day) {
 }
 
 function getFirebaseErrorMessage(error: unknown): string {
+      year: new Date().getFullYear()
   return error instanceof Error ? error.message : 'Неизвестная ошибка Firebase';
 }
 
@@ -410,7 +412,8 @@ async function submitBooking() {
       clientPhone: sanitizedPhone,
       date: currentSelectedDay.date,
       month: currentSelectedDay.month,
-      time: currentSelectedSlot.time
+      time: currentSelectedSlot.time,
+      year: new Date().getFullYear()
     });
 
     db = db.map(day => day.id === updatedDay.id ? updatedDay : day);
