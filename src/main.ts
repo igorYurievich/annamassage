@@ -27,7 +27,6 @@ const firebaseApp = initializeApp(firebaseConfig);
 const firestore = getFirestore(firebaseApp);
 const daysCollection = collection(firestore, 'days');
 const adminSettingsDocument = doc(firestore, 'settings', 'auth');
-const massagePhoneSettingsDocument = doc(firestore, 'settings', 'massage_phone');
 let stopDaysListener: (() => void) | null = null;
 
 interface Slot {
@@ -44,6 +43,26 @@ interface Day {
   date: string;
   month: string;
   slots: Slot[];
+}
+interface GoogleCalendarEvent {
+  clientName: string;
+  clientPhone: string;
+  date: string;
+  month: string;
+  time: string;
+}
+const googleCalendarApiUrl = '';
+
+async function createGoogleCalendarEvent(event: GoogleCalendarEvent): Promise<void> {
+  if (!googleCalendarApiUrl) return;
+
+  const response = await fetch(googleCalendarApiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event)
+  });
+
+  if (!response.ok) throw new Error('Не удалось создать событие в Google Calendar');
 }
 
 async function loadDB(): Promise<Day[]> {
@@ -77,21 +96,6 @@ async function loadAdminPassword(): Promise<string> {
   }
 
   return password;
-}
-
-async function loadMassagePhone(): Promise<string> {
-  const snapshot = await getDoc(massagePhoneSettingsDocument);
-  const phone = snapshot.data()?.phone;
-
-  if (!snapshot.exists() || typeof phone !== 'string' || !phone) {
-    throw new Error('В Firestore не найден номер для получения уведомлений');
-  }
-
-  return phone;
-}
-
-function normalizeRecipientPhone(phone: string): string {
-  return phone.replace(/\D/g, '');
 }
 
 async function saveDay(day: Day) {
@@ -308,25 +312,6 @@ function validateBookingPhone(value: string): string | null {
   return null;
 }
 
-function getRussianMonth(monthName: string): string {
-  const map: Record<string, string> = {
-    enero: 'января',
-    febrero: 'февраля',
-    marzo: 'марта',
-    abril: 'апреля',
-    mayo: 'мая',
-    junio: 'июня',
-    julio: 'июля',
-    agosto: 'августа',
-    septiembre: 'сентября',
-    octubre: 'октября',
-    noviembre: 'ноября',
-    diciembre: 'декабря'
-  };
-
-  return map[monthName.toLowerCase()] ?? monthName;
-}
-
 function showBookingForm(slot: Slot) {
   currentSelectedSlot = slot;
   if (!modalTitle || !modalBody) return;
@@ -397,70 +382,53 @@ async function submitBooking() {
     modalBody.innerHTML = `<div class="spinner-border text-purple" role="status"></div>`;
   }
 
-  // --- GREEN API CONFIGURATION ---
-  // Зарегистрируйся на green-api.com и вставь свои данные сюда
-  const idInstance = "710722724753"; 
-  const apiTokenInstance = "7781d14ed463494abe476c9d65ec9d90fe591fd9d3ec4bf38e";
-  
-  const apiUrl = `https://7107.api.greenapi.com/waInstance${idInstance}/sendMessage/${apiTokenInstance}`;
-  const russianMonth = getRussianMonth(currentSelectedDay?.month ?? '');
-  const message = `🔔 *Новая бронь*\nКлиент: ${sanitizedName}\nТелефон: ${sanitizedPhone}\nДата: ${currentSelectedDay?.date} ${russianMonth}\nВремя: ${currentSelectedSlot?.time}`;
-
   try {
-    const phoneToReceive = normalizeRecipientPhone(await loadMassagePhone());
-    if (!phoneToReceive) throw new Error('Номер получателя пустой');
+    if (!currentSelectedDay || !currentSelectedSlot) throw new Error('Слот не выбран');
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chatId: `${phoneToReceive}@c.us`,
-        message: message
-      })
+    const dayRef = doc(daysCollection, currentSelectedDay.id);
+    const updatedDay = await runTransaction(firestore, async transaction => {
+      const daySnapshot = await transaction.get(dayRef);
+      const dayFromFirestore = daySnapshot.data() as Day | undefined;
+      const slot = dayFromFirestore?.slots.find(item => item.id === currentSelectedSlot?.id);
+
+      if (!dayFromFirestore || !slot || slot.isBooked) {
+        throw new Error('Слот уже забронирован');
+      }
+
+      const nextDay: Day = {
+        ...dayFromFirestore,
+        slots: dayFromFirestore.slots.map(item => item.id === slot.id
+          ? { ...item, isBooked: true, clientName: sanitizedName, clientPhone: sanitizedPhone }
+          : item)
+      };
+      transaction.set(dayRef, nextDay);
+      return nextDay;
     });
 
-    if (response.ok) {
-      if (!currentSelectedDay || !currentSelectedSlot) throw new Error('Слот не выбран');
+    await createGoogleCalendarEvent({
+      clientName: sanitizedName,
+      clientPhone: sanitizedPhone,
+      date: currentSelectedDay.date,
+      month: currentSelectedDay.month,
+      time: currentSelectedSlot.time
+    });
 
-      const dayRef = doc(daysCollection, currentSelectedDay.id);
-      const updatedDay = await runTransaction(firestore, async transaction => {
-        const daySnapshot = await transaction.get(dayRef);
-        const dayFromFirestore = daySnapshot.data() as Day | undefined;
-        const slot = dayFromFirestore?.slots.find(item => item.id === currentSelectedSlot?.id);
+    db = db.map(day => day.id === updatedDay.id ? updatedDay : day);
 
-        if (!dayFromFirestore || !slot || slot.isBooked) {
-          throw new Error('Слот уже забронирован');
-        }
-
-        const nextDay: Day = {
-          ...dayFromFirestore,
-          slots: dayFromFirestore.slots.map(item => item.id === slot.id
-            ? { ...item, isBooked: true, clientName: sanitizedName, clientPhone: sanitizedPhone }
-            : item)
-        };
-        transaction.set(dayRef, nextDay);
-        return nextDay;
-      });
-
-      db = db.map(day => day.id === updatedDay.id ? updatedDay : day);
-      
-      if (modalTitle && modalBody) {
-        modalTitle.textContent = '¡Reserva confirmada!';
-        modalBody.innerHTML = `
-          <h1 class="text-success mb-3">✓</h1>
-          <h5>Gracias, ${sanitizedName}.</h5>
-          <button class="btn btn-outline-success mt-3" data-bs-dismiss="modal">Cerrar</button>
-        `;
-      }
-      renderClientCalendar();
-    } else {
-      throw new Error('Error API');
+    if (modalTitle && modalBody) {
+      modalTitle.textContent = '¡Reserva confirmada!';
+      modalBody.innerHTML = `
+        <h1 class="text-success mb-3">✓</h1>
+        <h5>Gracias, ${sanitizedName}.</h5>
+        <button class="btn btn-outline-success mt-3" data-bs-dismiss="modal">Cerrar</button>
+      `;
     }
+    renderClientCalendar();
   } catch (error) {
     console.error(error);
     if (modalTitle && modalBody) {
       modalTitle.textContent = 'Error';
-      modalBody.innerHTML = `<p class="text-danger">Hubo un problema al enviar el mensaje.</p>`;
+      modalBody.innerHTML = `<p class="text-danger">Hubo un problema al completar la reserva.</p>`;
     }
   }
 }
