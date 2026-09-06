@@ -133,6 +133,129 @@
             transform: translateY(-4px);
             box-shadow: 0 14px 28px rgba(29, 111, 232, 0.12);
         }
+        .booking-calendar {
+            max-width: 760px;
+            margin-inline: auto;
+            padding: 22px;
+            border: 1px solid #e5edf8;
+            border-radius: 26px;
+            background: rgba(255,255,255,0.88);
+            box-shadow: 0 16px 38px rgba(36, 83, 135, 0.09);
+        }
+        .calendar-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .calendar-month-title {
+            margin: 0;
+            color: #16283d;
+            font-size: 1.25rem;
+            font-weight: 800;
+            text-align: center;
+        }
+        .calendar-arrow {
+            display: grid;
+            place-items: center;
+            width: 38px;
+            height: 38px;
+            border: 1px solid #dce8f7;
+            border-radius: 12px;
+            color: #1d6fe8;
+            background: #f6faff;
+            font-size: 1.7rem;
+            line-height: 1;
+        }
+        .calendar-arrow:hover {
+            background: #eaf3ff;
+        }
+        .calendar-week-strip,
+        .calendar-week-labels,
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .calendar-week-strip {
+            margin-bottom: 20px;
+        }
+        .week-day,
+        .calendar-day {
+            border: 1px solid transparent;
+            background: transparent;
+            color: #526a84;
+        }
+        .week-day {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 9px 4px;
+            border-radius: 15px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .week-day strong {
+            color: #16283d;
+            font-size: 1.05rem;
+        }
+        .week-day.is-selected,
+        .calendar-day.is-selected {
+            color: #fff;
+            background: #1d6fe8;
+            box-shadow: 0 8px 18px rgba(29,111,232,0.2);
+        }
+        .week-day.is-selected strong { color: #fff; }
+        .calendar-week-labels {
+            margin-bottom: 8px;
+            color: #93a1b2;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .calendar-day {
+            aspect-ratio: 1;
+            border-radius: 14px;
+            color: #253d57;
+            font-size: 0.95rem;
+            font-weight: 700;
+            transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+        }
+        .calendar-day:hover:not(.is-selected) {
+            background: #edf5ff;
+            transform: translateY(-1px);
+        }
+        .calendar-day.is-muted { color: #b8c3d0; }
+        .calendar-day.is-today:not(.is-selected) {
+            border-color: #8ebcff;
+            color: #1d6fe8;
+        }
+        .calendar-time-panel {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid #e8eef6;
+        }
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .calendar-time-panel .btn-slot {
+            border: 1px solid #dce8f7;
+            border-radius: 12px;
+            color: #31506f;
+            background: #fff;
+            box-shadow: none;
+        }
+        .calendar-time-panel .btn-slot:hover {
+            color: #1d6fe8;
+            background: #edf5ff;
+            border-color: #8ebcff;
+        }
         .btn-slot {
             background: linear-gradient(135deg, #1d6fe8, #2f8bff);
             color: white;
@@ -281,6 +404,18 @@
             .contact-actions {
                 flex-direction: column;
             }
+            .booking-calendar {
+                padding: 15px 10px;
+                border-radius: 20px;
+            }
+            .calendar-week-strip,
+            .calendar-week-labels,
+            .calendar-grid {
+                gap: 4px;
+            }
+            .time-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
     </style>
 </head>
@@ -318,7 +453,7 @@
             <h2 class="fw-bold text-purple">Calendario de disponibilidad</h2>
             <p class="text-muted mb-0">Elija una fecha, la duración y una hora disponible.</p>
         </div>
-        <div id="calendar-container" class="row row-cols-2 row-cols-md-4 g-3 mb-5"></div>
+        <div id="calendar-container" class="mb-5"></div>
 
         <div class="contact-card">
             <div class="contact-copy">

@@ -103,6 +103,9 @@ let db: Day[] = [];
 let currentSelectedDay: Day | null = null;
 let currentSelectedTime = '';
 let currentSelectedDuration = 60;
+let visibleCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let selectedCalendarDate = new Date();
+selectedCalendarDate.setHours(0, 0, 0, 0);
 
 let modalInstance: any = null;
 
@@ -144,28 +147,79 @@ function renderApp() {
 // --- КЛИЕНТСКАЯ ЧАСТЬ ---
 function renderClientCalendar() {
   if (!calendarContainer) return;
-  calendarContainer.innerHTML = '';
+  const monthLabel = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(visibleCalendarMonth);
+  const firstDay = new Date(visibleCalendarMonth);
+  const firstGridDay = new Date(firstDay);
+  const mondayOffset = (firstDay.getDay() + 6) % 7;
+  firstGridDay.setDate(firstDay.getDate() - mondayOffset);
+  const todayKey = getDateKey(new Date());
+  const dayLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  calendarContainer.className = 'booking-calendar mb-5';
+  calendarContainer.innerHTML = `
+    <div class="calendar-toolbar">
+      <button class="calendar-arrow" id="previousMonth" type="button" aria-label="Mes anterior">‹</button>
+      <h3 class="calendar-month-title">${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}</h3>
+      <button class="calendar-arrow" id="nextMonth" type="button" aria-label="Mes siguiente">›</button>
+    </div>
+    <div class="calendar-week-strip" id="calendar-week-strip"></div>
+    <div class="calendar-week-labels">${dayLabels.map(label => `<span>${label}</span>`).join('')}</div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+    <div class="calendar-time-panel" id="inline-time-picker"></div>
+  `;
 
-  for (let offset = 0; offset < 45; offset += 1) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + offset);
-    const day = getDayForDate(date);
+  const weekStrip = document.getElementById('calendar-week-strip');
+  const grid = document.getElementById('calendar-grid');
+  const weekStart = new Date(selectedCalendarDate);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
 
-    const col = document.createElement('div');
-    col.className = 'col';
-    col.innerHTML = `
-      <div class="card calendar-card text-center p-3">
-        <h5 class="mb-0">${day.dayOfWeek}</h5>
-        <h2 class="fw-bold text-purple my-2">${day.date}</h2>
-        <small class="text-muted">${day.month}</small>
-      </div>
-    `;
-    col.addEventListener('click', () => openDayModal(day));
-    calendarContainer.appendChild(col);
+  for (let index = 0; index < 7; index += 1) {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
+    const dateKey = getDateKey(date);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `week-day ${dateKey === getDateKey(selectedCalendarDate) ? 'is-selected' : ''}`;
+    button.innerHTML = `<span>${dayLabels[index]}</span><strong>${date.getDate()}</strong>`;
+    button.addEventListener('click', () => selectCalendarDate(date));
+    weekStrip?.appendChild(button);
   }
+
+  for (let index = 0; index < 42; index += 1) {
+    const date = new Date(firstGridDay);
+    date.setDate(firstGridDay.getDate() + index);
+    const dateKey = getDateKey(date);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `calendar-day ${date.getMonth() !== visibleCalendarMonth.getMonth() ? 'is-muted' : ''} ${dateKey === getDateKey(selectedCalendarDate) ? 'is-selected' : ''} ${dateKey === todayKey ? 'is-today' : ''}`;
+    button.innerHTML = `<span>${date.getDate()}</span>`;
+    button.addEventListener('click', () => selectCalendarDate(date));
+    grid?.appendChild(button);
+  }
+
+  document.getElementById('previousMonth')?.addEventListener('click', () => {
+    visibleCalendarMonth = new Date(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth() - 1, 1);
+    renderClientCalendar();
+  });
+  document.getElementById('nextMonth')?.addEventListener('click', () => {
+    visibleCalendarMonth = new Date(visibleCalendarMonth.getFullYear(), visibleCalendarMonth.getMonth() + 1, 1);
+    renderClientCalendar();
+  });
+
+  const selectedDay = getDayForDate(selectedCalendarDate);
+  currentSelectedDay = selectedDay;
+  renderTimePicker(selectedDay, document.getElementById('inline-time-picker'));
+}
+
+function getDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function selectCalendarDate(date: Date) {
+  selectedCalendarDate = new Date(date);
+  selectedCalendarDate.setHours(0, 0, 0, 0);
+  visibleCalendarMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+  renderClientCalendar();
 }
 
 function getDayForDate(date: Date): Day {
@@ -212,8 +266,8 @@ function getAvailableTimes(day: Day, durationMinutes: number): string[] {
   return availableTimes;
 }
 
-function renderTimePicker(day: Day) {
-  if (!modalBody) return;
+function renderTimePicker(day: Day, target: HTMLElement | null) {
+  if (!target) return;
   const availableTimes = getAvailableTimes(day, currentSelectedDuration);
   const durationOptions = [60, 90, 120].map(duration => `
     <button class="btn ${duration === currentSelectedDuration ? 'btn-primary' : 'btn-outline-primary'} duration-btn" data-duration="${duration}">
@@ -224,31 +278,21 @@ function renderTimePicker(day: Day) {
     ? availableTimes.map(time => `<button class="btn btn-slot py-2 time-btn" data-time="${time}">${time}</button>`).join('')
     : '<p class="text-muted mb-0">No hay horarios disponibles para esta duración.</p>';
 
-  modalBody.innerHTML = `
+  target.innerHTML = `
     <p class="text-muted mb-3">Elige la duración y la hora de inicio:</p>
     <div class="btn-group w-100 mb-4" role="group" aria-label="Duración del masaje">${durationOptions}</div>
-    <div class="d-grid gap-2">${timeOptions}</div>
+    <div class="time-grid">${timeOptions}</div>
   `;
 
-  modalBody.querySelectorAll<HTMLButtonElement>('.duration-btn').forEach(button => {
+  target.querySelectorAll<HTMLButtonElement>('.duration-btn').forEach(button => {
     button.addEventListener('click', () => {
       currentSelectedDuration = Number(button.dataset.duration);
-      renderTimePicker(day);
+      renderTimePicker(day, target);
     });
   });
-  modalBody.querySelectorAll<HTMLButtonElement>('.time-btn').forEach(button => {
+  target.querySelectorAll<HTMLButtonElement>('.time-btn').forEach(button => {
     button.addEventListener('click', () => showBookingForm(button.dataset.time ?? '', currentSelectedDuration));
   });
-}
-
-function openDayModal(day: Day) {
-  currentSelectedDay = day;
-  if (!modalTitle || !modalBody) return;
-
-  modalTitle.textContent = `Reserva: ${day.date} ${day.month}`;
-  currentSelectedDuration = 60;
-  renderTimePicker(day);
-  modalInstance.show();
 }
 
 function normalizeBookingName(value: string): string {
@@ -339,8 +383,9 @@ function showBookingForm(time: string, durationMinutes: number) {
     setFieldError(phoneInput, null);
   });
 
-  document.getElementById('backBtn')?.addEventListener('click', () => openDayModal(currentSelectedDay!));
+  document.getElementById('backBtn')?.addEventListener('click', () => modalInstance.hide());
   document.getElementById('confirmBtn')?.addEventListener('click', submitBooking);
+  modalInstance.show();
 }
 
 async function submitBooking() {
