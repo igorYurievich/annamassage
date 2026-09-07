@@ -145,6 +145,7 @@ function setLanguage(language: Language) {
   renderApp();
 }
 const googleCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/createCalendarEvent';
+const reserveBookingApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/reserveBooking';
 const deleteGoogleCalendarEventApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/deleteCalendarEvent';
 const syncCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/syncCalendarBookings';
 const localReservationsKey = 'annaMassageLocalReservations';
@@ -763,43 +764,26 @@ async function submitBooking() {
     showBookingProgress('checking');
 
     const selectedDay = currentSelectedDay;
-    bookingId = `booking-${Date.now()}`;
     const dayRef = doc(daysCollection, selectedDay.id);
     reservationRef = dayRef;
-    const updatedDay = await runTransaction(firestore, async transaction => {
-      const daySnapshot = await transaction.get(dayRef);
-      const dayFromFirestore = daySnapshot.data() as Day | undefined;
-      const dayData = dayFromFirestore ?? selectedDay;
-      const requestedStart = timeToMinutes(currentSelectedTime);
-      const requestedEnd = requestedStart + currentSelectedDuration;
-      const overlaps = dayData.slots.some(item => {
-        if (!item.isBooked) return false;
-        const bookedStart = timeToMinutes(item.time);
-        const bookedEnd = bookedStart + (item.durationMinutes ?? 60) + sessionBufferMinutes;
-        return requestedStart < bookedEnd && requestedEnd + sessionBufferMinutes > bookedStart;
-      });
-
-      if (overlaps) {
-        throw new Error('Слот уже забронирован');
-      }
-
-      const nextDay: Day = {
-        ...dayData,
-        slots: [...dayData.slots, {
-          id: bookingId,
-          time: currentSelectedTime,
-          durationMinutes: currentSelectedDuration,
-          isBooked: true,
-          clientName: sanitizedName,
-          clientPhone: sanitizedPhone,
-          clientInstagram: instagramInput,
-          clientNote: noteInput,
-          createdAt: Date.now()
-        }]
-      };
-      transaction.set(dayRef, nextDay);
-      return nextDay;
+    const reserveResponse = await fetch(reserveBookingApiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dayId: selectedDay.id,
+        time: currentSelectedTime,
+        durationMinutes: currentSelectedDuration,
+        clientName: sanitizedName,
+        clientPhone: sanitizedPhone,
+        clientInstagram: instagramInput,
+        clientNote: noteInput
+      })
     });
+    if (reserveResponse.status === 409) throw new Error('Слот уже забронирован');
+    if (!reserveResponse.ok) throw new Error('Не удалось сохранить бронирование');
+    const reservationResult = await reserveResponse.json() as { bookingId: string; day: Day };
+    bookingId = reservationResult.bookingId;
+    const updatedDay = reservationResult.day;
 
     showBookingProgress('available');
 
