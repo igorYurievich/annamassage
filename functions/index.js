@@ -299,7 +299,24 @@ exports.syncCalendarBookings = onRequest(
         maxResults: 2500
       });
 
-      response.status(200).json({ eventIds: (events.data.items ?? []).map(event => event.id).filter(Boolean) });
+      const activeEventIds = new Set((events.data.items ?? []).map(event => event.id).filter(Boolean));
+      const daysSnapshot = await firestore.collection('days').get();
+      await Promise.all(daysSnapshot.docs.map(async daySnapshot => {
+        const day = daySnapshot.data();
+        const nextSlots = (day.slots ?? []).filter(slot => !slot.calendarEventId || activeEventIds.has(slot.calendarEventId));
+        if (nextSlots.length === (day.slots ?? []).length) return;
+        await firestore.runTransaction(async transaction => {
+          const currentSnapshot = await transaction.get(daySnapshot.ref);
+          if (!currentSnapshot.exists) return;
+          const currentDay = currentSnapshot.data();
+          transaction.set(daySnapshot.ref, {
+            ...currentDay,
+            slots: (currentDay.slots ?? []).filter(slot => !slot.calendarEventId || activeEventIds.has(slot.calendarEventId))
+          });
+        });
+      }));
+
+      response.status(200).json({ eventIds: [...activeEventIds] });
     } catch (error) {
       console.error('Не удалось синхронизировать бронирования Google Calendar', error);
       response.status(500).json({ error: 'Не удалось синхронизировать Google Calendar' });
