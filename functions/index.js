@@ -1,6 +1,11 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { google } = require('googleapis');
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+
+initializeApp();
+const firestore = getFirestore();
 
 const googleServiceAccountKey = defineSecret('GOOGLE_SERVICE_ACCOUNT_KEY');
 const calendarId = 'recuerdoigor@gmail.com';
@@ -20,6 +25,83 @@ const monthNumbers = {
   noviembre: 11,
   diciembre: 12
 };
+
+function timeToMinutes(value) {
+  const [hours, minutes] = String(value).split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+exports.reserveBooking = onRequest(
+  { region: 'us-central1', invoker: 'public' },
+  async (request, response) => {
+    response.set('Access-Control-Allow-Origin', getCorsOrigin(request));
+    response.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.set('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (request.method === 'OPTIONS') {
+      response.status(204).send('');
+      return;
+    }
+    if (request.method !== 'POST') {
+      response.status(405).json({ error: 'Метод не поддерживается' });
+      return;
+    }
+
+    try {
+      const { dayId, time, durationMinutes, clientName, clientPhone, clientInstagram, clientNote } = request.body ?? {};
+      const duration = Number(durationMinutes);
+      if (!dayId || !/^\d{2}:\d{2}$/.test(time) || ![60, 90, 120].includes(duration) || !clientName || !clientPhone) {
+        response.status(400).json({ error: 'Некорректные данные бронирования' });
+        return;
+      }
+
+      const dayRef = firestore.collection('days').doc(String(dayId));
+      const booking = await firestore.runTransaction(async transaction => {
+        const daySnapshot = await transaction.get(dayRef);
+        if (!daySnapshot.exists) throw new Error('День бронирования не найден');
+
+        const day = daySnapshot.data();
+        const requestedStart = timeToMinutes(time);
+        const requestedEnd = requestedStart + duration;
+        const overlaps = (day.slots ?? []).some(item => {
+          if (!item.isBooked) return false;
+          const bookedStart = timeToMinutes(item.time);
+          const bookedEnd = bookedStart + Number(item.durationMinutes ?? 60) + sessionBufferMinutes;
+          return requestedStart < bookedEnd && requestedEnd + sessionBufferMinutes > bookedStart;
+        });
+
+        if (overlaps) throw new Error('Слот уже забронирован');
+
+        const bookingId = `booking-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const nextDay = {
+          ...day,
+          slots: [...(day.slots ?? []), {
+            id: bookingId,
+            time,
+            durationMinutes: duration,
+            isBooked: true,
+            clientName,
+            clientPhone,
+            clientInstagram: clientInstagram ?? '',
+            clientNote: clientNote ?? '',
+            createdAt: Date.now()
+          }]
+        };
+        transaction.set(dayRef, nextDay);
+        return { bookingId, day: nextDay };
+      });
+
+      response.status(201).json(booking);
+    } catch (error) {
+      if (error.message === 'Слот уже забронирован') {
+        response.status(409).json({ error: error.message });
+        return;
+      }
+      console.error('Не удалось сохранить бронирование', error);
+      response.status(500).json({ error: 'Не удалось сохранить бронирование' });
+    }
+  }
+);
 
 function getCorsOrigin(request) {
   const origin = request.headers.origin;
