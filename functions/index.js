@@ -185,6 +185,35 @@ exports.createCalendarEvent = onRequest(
   }
 );
 
+exports.attachCalendarEvent = onRequest(
+  { region: 'us-central1', invoker: 'public' },
+  async (request, response) => {
+    response.set('Access-Control-Allow-Origin', getCorsOrigin(request));
+    response.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.set('Access-Control-Allow-Headers', 'Content-Type');
+    if (request.method === 'OPTIONS') { response.status(204).send(''); return; }
+    if (request.method !== 'POST') { response.status(405).json({ error: 'Метод не поддерживается' }); return; }
+    try {
+      const { dayId, bookingId, calendarEventId } = request.body ?? {};
+      if (!dayId || !bookingId || !calendarEventId) { response.status(400).json({ error: 'Не хватает данных бронирования' }); return; }
+      const dayRef = firestore.collection('days').doc(String(dayId));
+      const day = await firestore.runTransaction(async transaction => {
+        const snapshot = await transaction.get(dayRef);
+        if (!snapshot.exists) throw new Error('День бронирования не найден');
+        const data = snapshot.data();
+        if (!(data.slots ?? []).some(slot => slot.id === bookingId)) throw new Error('Бронирование не найдено');
+        const nextDay = { ...data, slots: data.slots.map(slot => slot.id === bookingId ? { ...slot, calendarEventId } : slot) };
+        transaction.set(dayRef, nextDay);
+        return nextDay;
+      });
+      response.status(200).json({ day });
+    } catch (error) {
+      console.error('Не удалось привязать событие календаря', error);
+      response.status(500).json({ error: 'Не удалось обновить бронирование' });
+    }
+  }
+);
+
 exports.deleteCalendarEvent = onRequest(
   { region: 'us-central1', invoker: 'public', secrets: [googleServiceAccountKey] },
   async (request, response) => {
@@ -203,8 +232,8 @@ exports.deleteCalendarEvent = onRequest(
     }
 
     try {
-      const { eventId } = request.body ?? {};
-      if (!eventId) {
+      const { eventId, dayId, bookingId } = request.body ?? {};
+      if (!eventId || !dayId || !bookingId) {
         response.status(400).json({ error: 'Falta el ID del evento' });
         return;
       }
@@ -216,6 +245,13 @@ exports.deleteCalendarEvent = onRequest(
       });
       const calendar = google.calendar({ version: 'v3', auth });
       await calendar.events.delete({ calendarId, eventId });
+      const dayRef = firestore.collection('days').doc(String(dayId));
+      await firestore.runTransaction(async transaction => {
+        const snapshot = await transaction.get(dayRef);
+        if (!snapshot.exists) return;
+        const day = snapshot.data();
+        transaction.set(dayRef, { ...day, slots: (day.slots ?? []).filter(slot => slot.id !== bookingId) });
+      });
       response.status(204).send('');
     } catch (error) {
       if (error?.code === 404) {

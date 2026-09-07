@@ -146,6 +146,7 @@ function setLanguage(language: Language) {
 }
 const googleCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/createCalendarEvent';
 const reserveBookingApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/reserveBooking';
+const attachCalendarEventApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/attachCalendarEvent';
 const deleteGoogleCalendarEventApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/deleteCalendarEvent';
 const syncCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions.net/syncCalendarBookings';
 const localReservationsKey = 'annaMassageLocalReservations';
@@ -355,11 +356,11 @@ function formatReservationDate(reservation: LocalReservation): string {
   }).format(getReservationDateTime(reservation));
 }
 
-async function deleteGoogleCalendarEvent(eventId: string): Promise<void> {
+async function deleteGoogleCalendarEvent(reservation: LocalReservation): Promise<void> {
   const response = await fetch(deleteGoogleCalendarEventApiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ eventId })
+    body: JSON.stringify({ eventId: reservation.calendarEventId, dayId: reservation.dayId, bookingId: reservation.id })
   });
 
   if (!response.ok) throw new Error('No se pudo cancelar el evento del calendario');
@@ -373,20 +374,8 @@ async function cancelLocalReservation(reservation: LocalReservation, button: HTM
 
   try {
     if (reservation.calendarEventId) {
-      await deleteGoogleCalendarEvent(reservation.calendarEventId);
+      await deleteGoogleCalendarEvent(reservation);
     }
-
-    const dayRef = doc(daysCollection, reservation.dayId);
-    await runTransaction(firestore, async transaction => {
-      const daySnapshot = await transaction.get(dayRef);
-      const day = daySnapshot.data() as Day | undefined;
-      if (!day) return;
-
-      transaction.set(dayRef, {
-        ...day,
-        slots: day.slots.filter(slot => slot.id !== reservation.id)
-      });
-    });
 
     saveLocalReservations(getLocalReservations().filter(item => item.id !== reservation.id));
     renderApp();
@@ -801,20 +790,13 @@ async function submitBooking() {
 
     showBookingProgress('finishing');
 
-    const savedDay = await runTransaction(firestore, async transaction => {
-      const daySnapshot = await transaction.get(dayRef);
-      const dayFromFirestore = daySnapshot.data() as Day | undefined;
-      if (!dayFromFirestore) throw new Error('День бронирования не найден');
-
-      const nextDay: Day = {
-        ...dayFromFirestore,
-        slots: dayFromFirestore.slots.map(slot => slot.id === bookingId
-          ? { ...slot, calendarEventId, clientInstagram: instagramInput }
-          : slot)
-      };
-      transaction.set(dayRef, nextDay);
-      return nextDay;
+    const attachResponse = await fetch(attachCalendarEventApiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dayId: selectedDay.id, bookingId, calendarEventId })
     });
+    if (!attachResponse.ok) throw new Error('Не удалось сохранить событие календаря');
+    const savedDay = (await attachResponse.json() as { day: Day }).day;
 
     db = db.map(day => day.id === savedDay.id ? savedDay : updatedDay);
     const localReservation: LocalReservation = {
