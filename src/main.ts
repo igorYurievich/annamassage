@@ -187,21 +187,6 @@ async function syncBookingsWithCalendar(): Promise<void> {
     saveLocalReservations(activeLocalReservations);
     renderLocalReservations();
   }
-  const daysToUpdate = db
-    .map(day => ({
-      ...day,
-      slots: day.slots.filter(slot => {
-        if (!slot.calendarEventId || activeEventIds.has(slot.calendarEventId) || recentlyCreatedEventIds.has(slot.calendarEventId)) return true;
-        if (!slot.createdAt) return true;
-        return Date.now() - slot.createdAt < calendarSyncGraceMs;
-      })
-    }))
-    .filter((day, index) => day.slots.length !== db[index].slots.length);
-
-  if (daysToUpdate.length === 0) return;
-  await Promise.all(daysToUpdate.map(day => setDoc(doc(daysCollection, day.id), day)));
-  db = db.map(day => daysToUpdate.find(updatedDay => updatedDay.id === day.id) ?? day);
-  renderApp();
 }
 
 async function loadDB(): Promise<Day[]> {
