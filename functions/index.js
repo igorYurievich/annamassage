@@ -39,7 +39,7 @@ function parseEventDate({ date, month, time, year, durationMinutes }) {
   if (hours > 23 || minutes > 59) throw new Error('Некорректное время бронирования');
 
   const start = new Date(eventYear, monthNumber - 1, day, hours, minutes);
-  const end = new Date(start.getTime() + (Number(durationMinutes) + sessionBufferMinutes) * 60 * 1000);
+  const end = new Date(start.getTime() + Number(durationMinutes) * 60 * 1000);
   const formatDate = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}T${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}:00`;
 
   return { start: formatDate(start), end: formatDate(end) };
@@ -79,11 +79,19 @@ exports.createCalendarEvent = onRequest(
 
       const createdEvent = await calendar.events.insert({
         calendarId,
+        sendUpdates: 'none',
         requestBody: {
           summary: `Массаж: ${clientName}`,
           description: `Клиент: ${clientName}\nТелефон: ${clientPhone}${clientInstagram ? `\nInstagram: ${clientInstagram}` : ''}${clientNote ? `\nПримечание: ${clientNote}` : ''}`,
           start: { dateTime: eventDate.start, timeZone },
-          end: { dateTime: eventDate.end, timeZone }
+          end: { dateTime: eventDate.end, timeZone },
+          reminders: {
+            useDefault: false,
+            overrides: [
+              { method: 'email', minutes: 60 },
+              { method: 'popup', minutes: 15 }
+            ]
+          }
         }
       });
 

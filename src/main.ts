@@ -90,6 +90,38 @@ let currentLanguage: Language = (localStorage.getItem(languageStorageKey) as Lan
 function t(key: string, values: Record<string, string> = {}): string {
   return Object.entries(values).reduce((text, [name, value]) => text.replace(`{${name}}`, value), translations[currentLanguage][key] ?? translations.es[key] ?? key);
 }
+
+const bookingProgressText: Record<Language, { checking: string; checkingDetail: string; available: string; availableDetail: string; finishing: string; finishingDetail: string }> = {
+  es: { checking: 'Comprobando disponibilidad', checkingDetail: 'Estamos consultando el horario actualizado.', available: 'Horario disponible', availableDetail: 'Estamos terminando de preparar tu reserva.', finishing: 'Casi listo', finishingDetail: 'Guardamos la cita en el calendario.' },
+  en: { checking: 'Checking availability', checkingDetail: 'We are checking the latest schedule.', available: 'Time available', availableDetail: 'We are finishing your booking.', finishing: 'Almost ready', finishingDetail: 'Saving the appointment to the calendar.' },
+  de: { checking: 'Verfügbarkeit wird geprüft', checkingDetail: 'Wir prüfen den aktuellen Kalender.', available: 'Zeit ist verfügbar', availableDetail: 'Wir schließen Ihre Buchung ab.', finishing: 'Fast geschafft', finishingDetail: 'Der Termin wird im Kalender gespeichert.' },
+  ru: { checking: 'Проверяем доступность', checkingDetail: 'Сверяем время с актуальным расписанием.', available: 'Время свободно', availableDetail: 'Заканчиваем оформление записи.', finishing: 'Почти готово', finishingDetail: 'Сохраняем запись в календаре.' }
+};
+
+function showBookingProgress(stage: 'checking' | 'available' | 'finishing') {
+  if (!modalTitle || !modalBody) return;
+
+  const text = bookingProgressText[currentLanguage];
+  const stages = [
+    { key: 'checking', label: text.checking },
+    { key: 'available', label: text.available },
+    { key: 'finishing', label: text.finishing }
+  ];
+  const activeIndex = stages.findIndex(item => item.key === stage);
+
+  modalTitle.textContent = stages[activeIndex].label;
+  modalBody.innerHTML = `
+    <div class="booking-progress" role="status" aria-live="polite">
+      <div class="booking-progress-icon"><span></span></div>
+      <p class="booking-progress-title">${stages[activeIndex].label}</p>
+      <p class="booking-progress-detail">${stage === 'checking' ? text.checkingDetail : stage === 'available' ? text.availableDetail : text.finishingDetail}</p>
+      <div class="booking-progress-steps" aria-hidden="true">
+        ${stages.map((_, index) => `<span class="booking-progress-step ${index <= activeIndex ? 'is-active' : ''}"></span>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function setLanguage(language: Language) {
   currentLanguage = language;
   localStorage.setItem(languageStorageKey, language);
@@ -98,6 +130,14 @@ function setLanguage(language: Language) {
   document.querySelectorAll<HTMLButtonElement>('[data-language]').forEach(button => {
     button.classList.toggle('is-active', button.dataset.language === language);
   });
+  const selectedLanguage = document.querySelector<HTMLButtonElement>(`[data-language="${language}"]`);
+  const selectedLanguageLabel = document.getElementById('selectedLanguageLabel');
+  const selectedLanguageFlag = document.getElementById('selectedLanguageFlag');
+  if (selectedLanguageLabel) selectedLanguageLabel.textContent = selectedLanguage?.dataset.languageName ?? language;
+  if (selectedLanguageFlag && selectedLanguage) {
+    const flagClass = selectedLanguage.querySelector('.flag-icon')?.className.split(' ').find(name => name.startsWith('flag-') && name !== 'flag-icon') ?? 'flag-es';
+    selectedLanguageFlag.className = `flag-icon ${flagClass}`;
+  }
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(element => { element.textContent = t(element.dataset.i18n ?? ''); });
   document.querySelectorAll<HTMLElement>('[data-i18n-placeholder]').forEach(element => { element.setAttribute('placeholder', t(element.dataset.i18nPlaceholder ?? '')); });
   renderApp();
@@ -108,8 +148,8 @@ const syncCalendarApiUrl = 'https://us-central1-annamassage-68e80.cloudfunctions
 const localReservationsKey = 'annaMassageLocalReservations';
 const sessionBufferMinutes = 30;
 const bookingOpeningMinutes = 10 * 60;
-const bookingClosingMinutes = 21 * 60;
-const minimumBookingNoticeMs = 3 * 60 * 60 * 1000;
+const bookingClosingMinutes = 20 * 60;
+const minimumBookingNoticeMs = 30 * 60 * 1000;
 const activeReservationRetentionMs = 60 * 60 * 1000;
 
 async function createGoogleCalendarEvent(event: GoogleCalendarEvent): Promise<string> {
@@ -711,17 +751,18 @@ async function submitBooking() {
   const sanitizedName = normalizeBookingName(nameInput);
   const sanitizedPhone = formatBookingPhone(phoneInput);
 
-  if (modalTitle && modalBody) {
-    modalTitle.textContent = t('processing');
-    modalBody.innerHTML = `<div class="spinner-border text-purple" role="status"></div>`;
-  }
+  let bookingId = '';
+  let reservationRef = null as ReturnType<typeof doc> | null;
 
   try {
     if (!currentSelectedDay || !currentSelectedTime) throw new Error('Время не выбрано');
 
+    showBookingProgress('checking');
+
     const selectedDay = currentSelectedDay;
-    const bookingId = `booking-${Date.now()}`;
+    bookingId = `booking-${Date.now()}`;
     const dayRef = doc(daysCollection, selectedDay.id);
+    reservationRef = dayRef;
     const updatedDay = await runTransaction(firestore, async transaction => {
       const daySnapshot = await transaction.get(dayRef);
       const dayFromFirestore = daySnapshot.data() as Day | undefined;
@@ -756,6 +797,8 @@ async function submitBooking() {
       return nextDay;
     });
 
+    showBookingProgress('available');
+
     const calendarEventId = await createGoogleCalendarEvent({
       clientName: sanitizedName,
       clientPhone: sanitizedPhone,
@@ -767,6 +810,8 @@ async function submitBooking() {
       clientInstagram: instagramInput,
       clientNote: noteInput
     });
+
+    showBookingProgress('finishing');
 
     const savedDay = await runTransaction(firestore, async transaction => {
       const daySnapshot = await transaction.get(dayRef);
@@ -813,6 +858,26 @@ async function submitBooking() {
     renderLocalReservations();
   } catch (error) {
     console.error(error);
+    if (bookingId && reservationRef) {
+      try {
+        const rollbackRef = reservationRef;
+        await runTransaction(firestore, async transaction => {
+          const daySnapshot = await transaction.get(rollbackRef);
+          const day = daySnapshot.data() as Day | undefined;
+          if (!day) return;
+          transaction.set(rollbackRef, {
+            ...day,
+            slots: day.slots.filter(slot => slot.id !== bookingId)
+          });
+        });
+        db = db.map(day => day.id === currentSelectedDay?.id
+          ? { ...day, slots: day.slots.filter(slot => slot.id !== bookingId) }
+          : day);
+        renderClientCalendar();
+      } catch (rollbackError) {
+        console.error('Не удалось откатить незавершённую резервацию', rollbackError);
+      }
+    }
     if (modalTitle && modalBody) {
       modalTitle.textContent = t('error');
       modalBody.innerHTML = `<p class="text-danger">${t('bookingError')}</p>`;

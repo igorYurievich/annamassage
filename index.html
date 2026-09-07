@@ -261,6 +261,52 @@
             border-color: #3a88ff;
             box-shadow: 0 0 0 0.2rem rgba(29,111,232,0.12);
         }
+        .booking-progress {
+            padding: 18px 8px 12px;
+        }
+        .booking-progress-icon {
+            display: grid;
+            place-items: center;
+            width: 58px;
+            height: 58px;
+            margin: 0 auto 18px;
+            border: 5px solid #dcecff;
+            border-top-color: #1d6fe8;
+            border-radius: 50%;
+            animation: booking-progress-spin 1s linear infinite;
+        }
+        .booking-progress-icon span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #1d6fe8;
+            opacity: 0.35;
+        }
+        .booking-progress-title {
+            color: #16283d;
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+        .booking-progress-detail {
+            margin-top: 6px;
+            color: #607793;
+            font-size: 0.92rem;
+        }
+        .booking-progress-steps {
+            display: flex;
+            gap: 6px;
+            max-width: 190px;
+            margin: 22px auto 0;
+        }
+        .booking-progress-step {
+            flex: 1;
+            height: 5px;
+            border-radius: 99px;
+            background: #e7eef7;
+            transition: background-color 0.35s ease;
+        }
+        .booking-progress-step.is-active { background: #70aaf5; }
+        @keyframes booking-progress-spin { to { transform: rotate(360deg); } }
         .duration-btn {
             display: inline-flex;
             flex-direction: column;
@@ -397,20 +443,66 @@
         .language-switcher {
             display: flex;
             align-items: center;
-            gap: 5px;
             margin-left: auto;
         }
-        .language-button {
+        .language-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 118px;
+            padding: 7px 10px;
             border: 1px solid #dce8f7;
-            border-radius: 10px;
+            border-radius: 12px;
+            color: #355170;
             background: #f6faff;
-            padding: 5px 7px;
-            font-size: 1.15rem;
-            line-height: 1;
-            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(29,111,232,0.05);
         }
-        .language-button:hover,
-        .language-button.is-active { background: #eaf3ff; border-color: #1d6fe8; }
+        .language-toggle::after {
+            margin-left: auto;
+        }
+        .language-toggle:hover,
+        .language-toggle.show {
+            color: #1d6fe8;
+            border-color: #8ebcff;
+            background: #fff;
+        }
+        .language-menu {
+            min-width: 170px;
+            padding: 7px;
+            border: 1px solid #dce8f7;
+            border-radius: 14px;
+            box-shadow: 0 14px 30px rgba(21, 53, 82, 0.14);
+        }
+        .language-option {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            width: 100%;
+            padding: 9px 10px;
+            border: 0;
+            border-radius: 9px;
+            color: #355170;
+            background: transparent;
+            font-size: 0.88rem;
+            text-align: left;
+        }
+        .language-option:hover,
+        .language-option.is-active {
+            color: #1d6fe8;
+            background: #eaf3ff;
+        }
+        .language-check {
+            margin-left: auto;
+            color: #1d6fe8;
+            font-size: 1rem;
+            opacity: 0;
+        }
+        .language-option.is-active .language-check { opacity: 1; }
+        .language-toggle .flag-icon {
+            flex: 0 0 auto;
+        }
         .flag-icon {
             display: inline-block;
             width: 25px;
@@ -420,7 +512,7 @@
             box-shadow: 0 1px 2px rgba(22, 40, 61, 0.14);
             vertical-align: middle;
         }
-        .flag-es { background: linear-gradient(to bottom, #aa151b 0 25%, #f1bf00 25% 75%, #aa151b 75%); }
+        .flag-es { background: linear-gradient(to bottom, #aa151b 0 25%, #f1bf00 25% 75%, #aa151b 75%) !important; }
         .flag-gb {
             background:
                 linear-gradient(33deg, transparent 43%, #fff 43% 48%, #c8102e 48% 52%, #fff 52% 57%, transparent 57%),
@@ -428,10 +520,10 @@
                 linear-gradient(to right, transparent 38%, #fff 38% 62%, transparent 62%),
                 linear-gradient(to bottom, transparent 30%, #fff 30% 70%, transparent 70%),
                 linear-gradient(to right, transparent 44%, #c8102e 44% 56%, transparent 56%),
-                linear-gradient(to bottom, transparent 35%, #c8102e 35% 65%, transparent 65%), #012169;
+                linear-gradient(to bottom, transparent 35%, #c8102e 35% 65%, transparent 65%), #012169 !important;
         }
-        .flag-de { background: linear-gradient(to bottom, #000 0 33.33%, #dd0000 33.33% 66.66%, #ffce00 66.66%); }
-        .flag-ru { background: linear-gradient(to bottom, #fff 0 33.33%, #0039a6 33.33% 66.66%, #d52b1e 66.66%); }
+        .flag-de { background: linear-gradient(to bottom, #000 0 33.33%, #dd0000 33.33% 66.66%, #ffce00 66.66%) !important; }
+        .flag-ru { background: linear-gradient(to bottom, #fff 0 33.33%, #0039a6 33.33% 66.66%, #d52b1e 66.66%) !important; }
         @media (max-width: 767.98px) {
             .hero-card {
                 grid-template-columns: 1fr;
@@ -493,11 +585,17 @@
     <nav class="navbar navbar-light bg-light shadow-sm mb-5">
         <div class="container">
             <a class="navbar-brand text-purple fw-bold" href="#" id="homeLogo" data-i18n="brand">Anna Massage</a>
-            <div class="language-switcher" aria-label="Language selector">
-                <button class="language-button" type="button" data-language="es" title="Español" aria-label="Español"><span class="flag-icon flag-es" aria-hidden="true"></span></button>
-                <button class="language-button" type="button" data-language="en" title="English" aria-label="English"><span class="flag-icon flag-gb" aria-hidden="true"></span></button>
-                <button class="language-button" type="button" data-language="de" title="Deutsch" aria-label="Deutsch"><span class="flag-icon flag-de" aria-hidden="true"></span></button>
-                <button class="language-button" type="button" data-language="ru" title="Русский" aria-label="Русский"><span class="flag-icon flag-ru" aria-hidden="true"></span></button>
+            <div class="language-switcher dropdown" aria-label="Language selector">
+                <button class="language-toggle dropdown-toggle" type="button" id="languageToggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span class="flag-icon flag-es" id="selectedLanguageFlag" aria-hidden="true"></span>
+                    <span id="selectedLanguageLabel">Español</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end language-menu" aria-labelledby="languageToggle">
+                    <button class="language-option" type="button" data-language="es" data-language-name="Español"><span class="flag-icon flag-es" aria-hidden="true"></span><span>Español</span><span class="language-check" aria-hidden="true">✓</span></button>
+                    <button class="language-option" type="button" data-language="en" data-language-name="English"><span class="flag-icon flag-gb" aria-hidden="true"></span><span>English</span><span class="language-check" aria-hidden="true">✓</span></button>
+                    <button class="language-option" type="button" data-language="de" data-language-name="Deutsch"><span class="flag-icon flag-de" aria-hidden="true"></span><span>Deutsch</span><span class="language-check" aria-hidden="true">✓</span></button>
+                    <button class="language-option" type="button" data-language="ru" data-language-name="Русский"><span class="flag-icon flag-ru" aria-hidden="true"></span><span>Русский</span><span class="language-check" aria-hidden="true">✓</span></button>
+                </div>
             </div>
         </div>
     </nav>
