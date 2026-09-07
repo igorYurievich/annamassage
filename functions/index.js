@@ -11,6 +11,7 @@ const googleServiceAccountKey = defineSecret('GOOGLE_SERVICE_ACCOUNT_KEY');
 const calendarId = 'recuerdoigor@gmail.com';
 const timeZone = 'Europe/Madrid';
 const sessionBufferMinutes = 30;
+const calendarSyncGraceMs = 5 * 60 * 1000;
 const monthNumbers = {
   enero: 1,
   febrero: 2,
@@ -303,7 +304,9 @@ exports.syncCalendarBookings = onRequest(
       const daysSnapshot = await firestore.collection('days').get();
       await Promise.all(daysSnapshot.docs.map(async daySnapshot => {
         const day = daySnapshot.data();
-        const nextSlots = (day.slots ?? []).filter(slot => !slot.calendarEventId || activeEventIds.has(slot.calendarEventId));
+        const nextSlots = (day.slots ?? []).filter(slot =>
+          !slot.calendarEventId || activeEventIds.has(slot.calendarEventId) || (slot.createdAt && Date.now() - slot.createdAt < calendarSyncGraceMs)
+        );
         if (nextSlots.length === (day.slots ?? []).length) return;
         await firestore.runTransaction(async transaction => {
           const currentSnapshot = await transaction.get(daySnapshot.ref);
@@ -311,7 +314,9 @@ exports.syncCalendarBookings = onRequest(
           const currentDay = currentSnapshot.data();
           transaction.set(daySnapshot.ref, {
             ...currentDay,
-            slots: (currentDay.slots ?? []).filter(slot => !slot.calendarEventId || activeEventIds.has(slot.calendarEventId))
+            slots: (currentDay.slots ?? []).filter(slot =>
+              !slot.calendarEventId || activeEventIds.has(slot.calendarEventId) || (slot.createdAt && Date.now() - slot.createdAt < calendarSyncGraceMs)
+            )
           });
         });
       }));

@@ -772,7 +772,6 @@ async function submitBooking() {
     if (!reserveResponse.ok) throw new Error('Не удалось сохранить бронирование');
     const reservationResult = await reserveResponse.json() as { bookingId: string; day: Day };
     bookingId = reservationResult.bookingId;
-    const updatedDay = reservationResult.day;
 
     showBookingProgress('available');
 
@@ -798,7 +797,9 @@ async function submitBooking() {
     if (!attachResponse.ok) throw new Error('Не удалось сохранить событие календаря');
     const savedDay = (await attachResponse.json() as { day: Day }).day;
 
-    db = db.map(day => day.id === savedDay.id ? savedDay : updatedDay);
+    db = db.some(day => day.id === savedDay.id)
+      ? db.map(day => day.id === savedDay.id ? savedDay : day)
+      : [...db, savedDay];
     const localReservation: LocalReservation = {
       id: bookingId,
       dayId: savedDay.id,
