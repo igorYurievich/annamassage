@@ -36,6 +36,7 @@ interface Slot {
   calendarEventId?: string;
   clientInstagram?: string;
   clientNote?: string;
+  createdAt?: number;
 }
 
 interface Day {
@@ -66,6 +67,7 @@ interface LocalReservation {
   time: string;
   durationMinutes: number;
   calendarEventId?: string;
+  createdAt?: number;
 }
 type Language = 'es' | 'en' | 'de' | 'ru';
 const languageStorageKey = 'annaMassageLanguage';
@@ -151,6 +153,7 @@ const bookingOpeningMinutes = 10 * 60;
 const bookingClosingMinutes = 20 * 60;
 const minimumBookingNoticeMs = 30 * 60 * 1000;
 const activeReservationRetentionMs = 60 * 60 * 1000;
+const calendarSyncGraceMs = 5 * 60 * 1000;
 
 async function createGoogleCalendarEvent(event: GoogleCalendarEvent): Promise<string> {
   if (!googleCalendarApiUrl) throw new Error('Google Calendar недоступен');
@@ -173,10 +176,25 @@ async function syncBookingsWithCalendar(): Promise<void> {
 
   const result = await response.json() as { eventIds?: string[] };
   const activeEventIds = new Set(result.eventIds ?? []);
+  const localReservations = getLocalReservations();
+  const recentlyCreatedEventIds = new Set(localReservations
+    .filter(reservation => reservation.calendarEventId && reservation.createdAt && Date.now() - reservation.createdAt < calendarSyncGraceMs)
+    .map(reservation => reservation.calendarEventId as string));
+  const activeLocalReservations = localReservations.filter(reservation =>
+    !reservation.calendarEventId || activeEventIds.has(reservation.calendarEventId) || recentlyCreatedEventIds.has(reservation.calendarEventId)
+  );
+  if (activeLocalReservations.length !== localReservations.length) {
+    saveLocalReservations(activeLocalReservations);
+    renderLocalReservations();
+  }
   const daysToUpdate = db
     .map(day => ({
       ...day,
-      slots: day.slots.filter(slot => !slot.calendarEventId || activeEventIds.has(slot.calendarEventId))
+      slots: day.slots.filter(slot => {
+        if (!slot.calendarEventId || activeEventIds.has(slot.calendarEventId) || recentlyCreatedEventIds.has(slot.calendarEventId)) return true;
+        if (!slot.createdAt) return true;
+        return Date.now() - slot.createdAt < calendarSyncGraceMs;
+      })
     }))
     .filter((day, index) => day.slots.length !== db[index].slots.length);
 
@@ -790,7 +808,8 @@ async function submitBooking() {
           clientName: sanitizedName,
           clientPhone: sanitizedPhone,
           clientInstagram: instagramInput,
-          clientNote: noteInput
+          clientNote: noteInput,
+          createdAt: Date.now()
         }]
       };
       transaction.set(dayRef, nextDay);
@@ -837,7 +856,8 @@ async function submitBooking() {
       year: selectedDay.year ?? new Date().getFullYear(),
       time: currentSelectedTime,
       durationMinutes: currentSelectedDuration,
-      calendarEventId
+      calendarEventId,
+      createdAt: Date.now()
     };
     saveLocalReservations([...getLocalReservations(), localReservation]);
 
